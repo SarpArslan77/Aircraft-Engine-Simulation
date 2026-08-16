@@ -1,3 +1,6 @@
+# Generic VSCode Files.
+/__pycache__
+
+# Organization Helper Files.
 /combined_python_code.txt
 /python_to_txt.py
-/__pycache__
