@@ -133,7 +133,7 @@ class AircraftEngineSimulatorFixedPoint:
     def _calculate_target_values(
             self,
             current_fuel_flow: int,
-            current_speed: int,
+            current_rotational_speed: int,
             gain_constants: tuple[int, int, int, int]
     ) -> quantized_values_type:
         """
@@ -164,20 +164,20 @@ class AircraftEngineSimulatorFixedPoint:
                 - target_exhaust_gas_temperature (int): Target temperature (T_target).
         """
         # Unpacks the gain constants.
-        speed_gain_coefficient, compressor_pressure_gain,combustion_heat_gain, mass_overflow_cooling_gain = gain_constants
+        speed_gain_coefficient, compressor_pressure_gain, combustion_heat_gain, mass_overflow_cooling_gain = gain_constants
 
         f_width: int = self._cfg.fractional_bit_width
 
         # ------- Calculates target values. -------
-        # All values has to be shifted to the right 'fractional_bit_width' in order to matcht the original bit widths.
+        # All values has to be shifted to the right 'fractional_bit_width' in order to match the original bit widths.
         # Rotational Speed.
         target_rotational_speed: int = (speed_gain_coefficient * current_fuel_flow) >> f_width
 
         # Compressor Pressure.
-        target_compressor_pressure: int = self._cfg.ambient_pressure_quantized + ((compressor_pressure_gain * (((current_speed)**2) >> f_width)) >> f_width) 
+        target_compressor_pressure: int = self._cfg.ambient_pressure_quantized + ((compressor_pressure_gain * (((current_rotational_speed)**2) >> f_width)) >> f_width) 
 
         # Exhaust Gas Temperature.
-        target_exhaust_gas_temperature: int = self._cfg.ambient_temperature_quantized + ((combustion_heat_gain * current_fuel_flow) >> f_width) - ((mass_overflow_cooling_gain * current_speed) >> f_width)
+        target_exhaust_gas_temperature: int = self._cfg.ambient_temperature_quantized + ((combustion_heat_gain * current_fuel_flow) >> f_width) - ((mass_overflow_cooling_gain * current_rotational_speed) >> f_width)
 
         return (target_rotational_speed, target_compressor_pressure, target_exhaust_gas_temperature)
 
@@ -397,7 +397,7 @@ class AircraftEngineSimulatorFixedPoint:
             # Calculates the target values.
             target_speed, target_pressure, target_temperature = self._calculate_target_values(
                 current_fuel_flow = current_fuel_flow,
-                current_speed = current_speed,
+                current_rotational_speed = current_speed,
                 gain_constants = (speed_gain_coeff, compressor_pressure_gain, combustion_heat_gain, mass_overflow_cooling_gain)
             )
 
