@@ -7,6 +7,10 @@
 #* ======= Libraries =======
 # ------- Natives. -------
 from dataclasses import dataclass
+from decimal import (
+    Decimal,
+    DecimalTuple
+)
 
 # ------- Externals. -------
 import numpy as np
@@ -15,6 +19,9 @@ from numpy import (
     int64
 )
 from numpy.typing import NDArray
+import pandas as pd
+from pandas import DataFrame
+from pathlib import Path
 
 # ------- Custom. -------
 from quantize_floats import quantize_floats
@@ -72,11 +79,14 @@ class ConfigAircraftEngineSimulatorFixedPoint:
     max_rotational_speed_quantized: int
     max_compressor_temperature_quantized: int
 
+    # ------- Path. -------
+    software_results_file_path: Path
+
 #* ======= Aircraft Engine Simulator =======
 quantized_values_type = tuple[int, int, int]
+histories_type = tuple[NDArray[int64], NDArray, NDArray[int64], NDArray[int64], NDArray[int64], NDArray[int64]]
 
 class AircraftEngineSimulatorFixedPoint:
-    #TODO AD
     def __init__(
             self,
             config_aircraft_engine_simulator_fixed_point: ConfigAircraftEngineSimulatorFixedPoint
@@ -90,7 +100,7 @@ class AircraftEngineSimulatorFixedPoint:
                 quantized environment conditions, and simulation parameters.
         """
         self._cfg: ConfigAircraftEngineSimulatorFixedPoint = config_aircraft_engine_simulator_fixed_point
-        
+
     def _fetch_current_fuel_flow(
             self,
             k: float
@@ -283,44 +293,98 @@ class AircraftEngineSimulatorFixedPoint:
 
         return (next_rotational_speed, next_compressor_pressure, next_exhaust_gas_temperature)
 
+    def _export_histories(
+            self,
+            histories: histories_type
+    ) -> None:
+        """
+        Exports the complete simulation state histories and input telemetry to a CSV file.
+
+        The generated dataset serves as a golden software reference for verification 
+        and comparison against fixed-point hardware/FPGA simulation outputs.
+
+        Args:
+            histories (histories_type): A tuple containing the simulation arrays:
+                - fuel_flow_history (NDArray[int64]): Quantized fuel flow rate (W_f) over time.
+                - speed_history (NDArray[int64]): Quantized engine rotational speed (N) over time.
+                - pressure_history (NDArray[int64]): Quantized compressor pressure (P) over time.
+                - temperature_history (NDArray[int64]): Quantized exhaust gas temperature (T) over time.
+                - is_engine_broken_history (NDArray[int64]): Binary structural failure flags (1 = broken, 0 = operational) over time.
+                - time_history (NDArray[float64]): Physical simulation time steps in seconds (t).
+
+        Returns:
+            None
+        """
+        # Unpacks the histories.
+        fuel_flow_history, speed_history, pressure_history, temperature_history, is_engine_broken_history, time_history = histories
+
+        # Declares a pandas dataframe.
+        df = DataFrame(
+            data = {
+                "fuel_flow": fuel_flow_history,
+                "speed": speed_history,
+                "pressure": pressure_history,
+                "temperature": temperature_history,
+                "is_engine_broken": is_engine_broken_history,
+                "time": time_history
+            }
+        )
+
+        software_results_file_name: Path = self._cfg.software_results_file_path / "software_results.csv"
+
+        # Exports the dataframe as a csv file.
+        df.to_csv(
+            software_results_file_name,
+            index = False
+        )
+
     def run_simulation(
             self,
             initial_conditions: tuple[int, int, int]
-    ) -> tuple[NDArray[int64], NDArray, NDArray[int64], NDArray[int64], NDArray[int64]]:
+    ) -> histories_type:
         """
-        Executes the full engine simulation loop using fixed-point arithmetic representation.
+        Executes the discrete-time fixed-point engine simulation loop.
 
-        At each simulation time step, this method:
-        - Evaluates fuel flow profiles.
-        - Calculates target speeds, pressures, and temperatures.
-        - Updates physical states via Euler integration.
-        - Enforces structural safety boundaries and checks for thermal or overspeed engine failure.
-          If a limit is breached, it flags structural failure and simulates fuel cut-off.
+        At each discrete time step, the solver:
+        1. Evaluates fuel flow profile based on simulation time.
+        2. If structural failure has occurred, simulates engine shutdown (fuel cut-off and zeroed gains).
+        3. Evaluates target rotational speed, compressor pressure, and exhaust gas temperature.
+        4. Computes state derivatives using optimized, division-free fixed-point arithmetic.
+        5. Advances system states using forward Euler integration.
+        6. Enforces physical safeguard clamping to avoid negative speeds or sub-ambient values.
+        7. Checks structural failure boundaries (overspeed and thermal meltdown).
+        8. Exports final history data to CSV for hardware co-verification.
 
-        Mathematical Equations & Constraints:
-        1) Time step calculation:
-           k = i * dt
-        2) Safeguards Clamping:
-           next_speed = max(0, next_speed)
-           next_pressure = max(P_amb_quantized, next_pressure)
-           next_temperature = max(T_amb_quantized, next_temperature)
-        3) Structural Monitoring:
-           Engine fails if (current_speed > N_max_quantized) or (current_temperature > T_max_quantized)
+        Mathematical Equations & Physical Constraints:
+        1) Total Iteration Count:
+        total_steps = ceil(total_simulation_time / simulation_step)
+        2) Simulation Time Step:
+        k = i * simulation_step
+        3) Safeguard Lower Clamping:
+        N_next = max(0, N_next)
+        P_next = max(P_amb_quantized, P_next)
+        T_next = max(T_amb_quantized, T_next)
+        4) Structural Failure Condition:
+        is_broken = (N[k] > N_max_quantized) or (T[k] > T_max_quantized)
+        5) Post-Failure Engine Cut-off Behavior:
+        If is_broken == True:
+            W_f = 0
+            K_N = 0,  K_P = 0,  K_heat = 0,  K_cool = 0
 
         Args:
-            initial_conditions (tuple[int, int, int]): Initial state values:
-                - initial_speed (int): Initial quantized rotational speed.
-                - initial_pressure (int): Initial quantized compressor pressure.
-                - initial_temperature (int): Initial quantized exhaust gas temperature.
+            initial_conditions (tuple[int, int, int]): Initial state values at t = 0:
+                - initial_speed (int): Quantized initial rotational speed (N[0]).
+                - initial_pressure (int): Quantized initial compressor pressure (P[0]).
+                - initial_temperature (int): Quantized initial exhaust gas temperature (T[0]).
 
         Returns:
-            tuple[NDArray[int64], NDArray, NDArray[int64], NDArray[int64], NDArray[int64]]: 
-                A tuple containing numpy arrays representing the history of states over time:
-                - fuel_flow_history (NDArray[int64]): Quantized fuel flow history.
-                - speed_history (NDArray[int64]): Quantized rotational speed history.
-                - pressure_history (NDArray[int64]): Quantized compressor pressure history.
-                - temperature_history (NDArray[int64]): Quantized exhaust gas temperature history.
-                - time_history (NDArray[float64]): Physical simulation time steps in seconds.
+            histories_type: A tuple containing 6 NumPy arrays of length (total_steps + 1):
+                - fuel_flow_history (NDArray[int64]): Quantized fuel flow history (W_f).
+                - speed_history (NDArray[int64]): Quantized rotational speed history (N).
+                - pressure_history (NDArray[int64]): Quantized compressor pressure history (P).
+                - temperature_history (NDArray[int64]): Quantized exhaust gas temperature history (T).
+                - is_engine_broken_history (NDArray[int64]): Engine structural health flag history.
+                - time_history (NDArray[float64]): Physical simulation time steps in seconds (t).
         """
         # Unpacks the initial conditions.
         initial_speed, initial_pressure, initial_temperature = initial_conditions
@@ -330,12 +394,25 @@ class AircraftEngineSimulatorFixedPoint:
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
         )
 
+        # Calculates to how many digits the time history should be rounded to.
+        simulation_step_str = str(self._cfg.simulation_step)
+        #? Decimal(): Class for exact base-10 arithmetic, rather than base-2 binary math.
+        simulation_step_decimal = Decimal(value = simulation_step_str)
+        #? .as_tuple(): Decomposes a Decimal object to its mathematical parts.
+        #   f.e. '0.001' -> DecimalTuple(sign = 0, digits = (1,), exponent = -3)
+        simulation_step_decimal_tuple: DecimalTuple = simulation_step_decimal.as_tuple()
+        #?  .exponent: Extracts jus the exponent integer of a DecimalTuple.
+        simulation_step_decimal_exponent: int = simulation_step_decimal_tuple.exponent
+        
+        time_history_rounding_decimals: int = max(0, -simulation_step_decimal_exponent)
+
         # Populates the time history as it is deterministic.
         time_history: NDArray[float64] = np.linspace(
             start = 0.0,
             stop = self._cfg.total_simulation_time,
-            num = total_steps + 1
-        )
+            num = total_steps + 1,
+            dtype = float64
+        ).round(decimals = time_history_rounding_decimals) #TODO FTH
 
         # Creates empty data structures.
         fuel_flow_history: NDArray[int64] = np.empty(
@@ -360,6 +437,11 @@ class AircraftEngineSimulatorFixedPoint:
             int64
         )
         temperature_history[0]= initial_temperature
+
+        is_engine_broken_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
 
         # ------- Simulation Loop. -------
         is_engine_broken: bool = False
@@ -386,6 +468,8 @@ class AircraftEngineSimulatorFixedPoint:
             else:
                 # Fetches the inputs.
                 current_fuel_flow: int = self._fetch_current_fuel_flow(k = k)
+
+            is_engine_broken_history[i] = is_engine_broken
             
             fuel_flow_history[i] = current_fuel_flow
 
@@ -435,11 +519,17 @@ class AircraftEngineSimulatorFixedPoint:
             pressure_history[i+1] = next_pressure
             temperature_history[i+1] = next_temperature
             
-        # Adds the last state of fuel flow to the history.
+        # Adds the last state of fuel flow and engine state to the history.
         last_fuel_flow: int = self._fetch_current_fuel_flow(k = (total_steps * self._cfg.simulation_step))
         
         fuel_flow_history[total_steps] = last_fuel_flow
+
+        is_engine_broken_history[total_steps] = is_engine_broken
+
+        # Packs all the histories in a single tuple.
+        histories: histories_type = (fuel_flow_history, speed_history, pressure_history, temperature_history, is_engine_broken_history, time_history)
+
+        # Exports the input and output histories, so the data can be used as a golden reference, when compared to hardware outputs.
+        self._export_histories(histories = histories)
         
-        return (
-        fuel_flow_history, speed_history, pressure_history, temperature_history, time_history
-        )
+        return histories

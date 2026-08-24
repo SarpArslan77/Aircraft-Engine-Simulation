@@ -4,3 +4,6 @@
 # Organization Helper Files.
 /combined_code.txt
 /code_to_txt.py
+
+# Outputs / Results.
+/software_results.csv
