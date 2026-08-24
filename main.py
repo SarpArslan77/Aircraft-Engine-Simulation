@@ -5,6 +5,7 @@
 # ------- Externals. -------
 from numpy import float64
 from numpy.typing import NDArray
+from pathlib import Path
 
 # ------- Customs. -------
 from aircraft_engine_simulator_floating import (
@@ -97,7 +98,9 @@ if __name__ == "__main__":
         mass_overflow_cooling_gain_quantized = quantize_floats(MASS_OVERFLOW_COOLING_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
     
         max_rotational_speed_quantized = quantize_floats(MAX_ROTATIONAL_SPEED, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        max_compressor_temperature_quantized = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+        max_compressor_temperature_quantized = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
+
+        software_results_file_path = Path(__file__).resolve().parent
     )
     
     aircraft_engine_simulator_fixed_point = AircraftEngineSimulatorFixedPoint(
@@ -182,9 +185,9 @@ if __name__ == "__main__":
     )
 
     #: time_history stays stable independent from the representation, so it doesnt need to be returned from floating simulation as well.
-    fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point, _ = aircraft_engine_simulator_fixed_point.run_simulation(
+    fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point, is_engine_broken_history, _ = aircraft_engine_simulator_fixed_point.run_simulation(
         initial_conditions = (
-            0.0, 
+            0, 
             quantize_floats(AMBIENT_PRESSURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True), 
             quantize_floats(AMBIENT_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
         )
