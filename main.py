@@ -45,7 +45,7 @@ if __name__ == "__main__":
     MASS_OVERFLOW_COOLING_GAIN: float = 6.0
 
     MAX_ROTATIONAL_SPEED: float = 110.0
-    MAX_COMPRESSOR_TEMPERATURE: float = 9500.0
+    MAX_COMPRESSOR_TEMPERATURE: float = 950.0
 
     INT_BIT_WIDTH: int = 16
     FRACTIONAL_BIT_WIDTH: int = 16
@@ -200,6 +200,9 @@ if __name__ == "__main__":
     speed_history_fixed_point_scaled: NDArray[float64] = speed_history_fixed_point / fixed_point_scale_factor
     pressure_history_fixed_point_scaled: NDArray[float64] = pressure_history_fixed_point / fixed_point_scale_factor
     temperature_history_fixed_point_scaled: NDArray[float64] = temperature_history_fixed_point / fixed_point_scale_factor
+
+    # Compares the accuracy of fixed-point against floating-point.
+    
 
     # Plots the data.
     graph_visualizer.run_visualization(
