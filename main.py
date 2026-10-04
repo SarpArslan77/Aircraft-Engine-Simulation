@@ -24,6 +24,8 @@ from graph_visualizer import (
     GraphVisualizer
 )
 
+from verify_software import SoftwareVerifier
+
 #* ======= Main Loop =======
 if __name__ == "__main__":
     # ------- Constants. -------
@@ -45,7 +47,7 @@ if __name__ == "__main__":
     MASS_OVERFLOW_COOLING_GAIN: float = 6.0
 
     MAX_ROTATIONAL_SPEED: float = 110.0
-    MAX_COMPRESSOR_TEMPERATURE: float = 950.0
+    MAX_COMPRESSOR_TEMPERATURE: float = 1100.0
 
     INT_BIT_WIDTH: int = 16
     FRACTIONAL_BIT_WIDTH: int = 16
@@ -106,6 +108,9 @@ if __name__ == "__main__":
     aircraft_engine_simulator_fixed_point = AircraftEngineSimulatorFixedPoint(
         config_aircraft_engine_simulator_fixed_point = config_aircraft_engine_simulator_fixed_point
     )
+
+    # Software Verification.
+    software_verifier = SoftwareVerifier()
 
     # Graph.
     config_graph_visualizer = ConfigGraphVisualizer(
@@ -202,7 +207,38 @@ if __name__ == "__main__":
     temperature_history_fixed_point_scaled: NDArray[float64] = temperature_history_fixed_point / fixed_point_scale_factor
 
     # Compares the accuracy of fixed-point against floating-point.
-    
+    print()
+    print("Quantization Verification Results: ")
+
+    # Calculates the error between the floating and fixed-point.
+    fuel_flow_error: NDArray = fuel_flow_history_floating - fuel_flow_history_fixed_point_scaled
+    speed_error: NDArray = speed_history_floating - speed_history_fixed_point_scaled
+    pressure_error: NDArray = pressure_history_floating - pressure_history_fixed_point_scaled
+    temperature_error: NDArray = temperature_history_floating - temperature_history_fixed_point_scaled
+
+    software_verifier.run_software_verifier(
+        original_signal = fuel_flow_history_floating,
+        error = fuel_flow_error,
+        state_name = "Fuel Flow"
+    )
+
+    software_verifier.run_software_verifier(
+        original_signal = speed_history_floating,
+        error = speed_error,
+        state_name = "Rotational Speed"
+    )
+
+    software_verifier.run_software_verifier(
+        original_signal = pressure_history_floating,
+        error = pressure_error,
+        state_name = "Compressor Pressure"
+    )
+
+    software_verifier.run_software_verifier(
+        original_signal = temperature_history_floating,
+        error = temperature_error,
+        state_name = "Exhaust Gas Temperature"
+    )
 
     # Plots the data.
     graph_visualizer.run_visualization(
