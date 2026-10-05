@@ -16,26 +16,64 @@ module calculate_derivatives #(
     parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = 0
 )(
     // ------- Inputs. -------
+    // System Signals.
+    input wire clk, rst,
+
     // Currents.
-    input wire signed [31:0] current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature,
+    input wire signed [31:0] current_rotational_speed, 
+    input wire signed [31:0] current_compressor_pressure, 
+    input wire signed [31:0] current_exhaust_gas_temperature,
 
     // Targets.
-    input wire signed [31:0] target_rotational_speed, target_compressor_pressure, target_exhaust_gas_temperature,
+    input wire signed [31:0] target_rotational_speed, 
+    input wire signed [31:0] target_compressor_pressure, 
+    input wire signed [31:0] target_exhaust_gas_temperature,
 
     // ------- Outputs. -------
-    output wire signed [31:0] d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature
+    output wire signed [31:0] d_rotational_speed, 
+    output wire signed [31:0] d_compressor_pressure, 
+    output wire signed [31:0] d_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
+    localparam MULTIPLICATION_BIT_WIDTH = TOTAL_BIT_WIDTH * 2;
 
     // ------- Wires. -------
-    wire signed [(2*TOTAL_BIT_WIDTH)-1:0] rotational_speed_mult = PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST * (target_rotational_speed - current_rotational_speed);
-    assign d_rotational_speed = (rotational_speed_mult >>> FRACTIONAL_BIT_WIDTH);
+    // Rotational Speed (RS).
+    wire signed [TOTAL_BIT_WIDTH-1:0] rotational_speed_delta = target_rotational_speed - current_rotational_speed;
+    assign d_rotational_speed = (rotational_speed_mult_r >>> FRACTIONAL_BIT_WIDTH);
 
-    wire signed [(2*TOTAL_BIT_WIDTH)-1:0] compressor_pressure_mult = PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST * (target_compressor_pressure - current_compressor_pressure);
-    assign d_compressor_pressure = (compressor_pressure_mult >>> FRACTIONAL_BIT_WIDTH);
+    // Compressor Pressure (CP).
+    wire signed [TOTAL_BIT_WIDTH-1:0] compressor_pressure_delta = target_compressor_pressure - current_compressor_pressure;
+    assign d_compressor_pressure = (compressor_pressure_mult_r >>> FRACTIONAL_BIT_WIDTH);
 
-    wire signed [(2*TOTAL_BIT_WIDTH)-1:0] exhaust_gas_temperature_mult = PRE_CALCULATED_THERMAL_TIME_CONST * (target_exhaust_gas_temperature - current_exhaust_gas_temperature);
-    assign d_exhaust_gas_temperature = (exhaust_gas_temperature_mult >>> FRACTIONAL_BIT_WIDTH);
+    // Exhaust Gas Temperature (EGT).
+    wire signed [TOTAL_BIT_WIDTH-1:0] exhaust_gas_temperature_delta = target_exhaust_gas_temperature - current_exhaust_gas_temperature;
+    assign d_exhaust_gas_temperature = (exhaust_gas_temperature_mult_r >>> FRACTIONAL_BIT_WIDTH);
+
+    // ------- Registers. -------
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_r;
+
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] compressor_pressure_mult_r;
+
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] exhaust_gas_temperature_mult_r;
+
+    // ------- Sequential Logic. -------
+    always @(posedge clk) begin
+        if (rst) begin
+            rotational_speed_mult_r <= 0;
+
+            compressor_pressure_mult_r <= 0;
+
+            exhaust_gas_temperature_mult_r <= 0;
+        end
+        else begin
+            rotational_speed_mult_r <= PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST * rotational_speed_delta;
+
+            compressor_pressure_mult_r <= PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST * compressor_pressure_delta;
+
+            exhaust_gas_temperature_mult_r <= PRE_CALCULATED_THERMAL_TIME_CONST * exhaust_gas_temperature_delta;
+        end
+    end
 
 endmodule

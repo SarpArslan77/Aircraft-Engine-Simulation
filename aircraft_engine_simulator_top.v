@@ -65,23 +65,23 @@ module aircraft_engine_simulator_top #(
 
     // ------- Registers. ------
     // Currents.
-    reg signed [TOTAL_BIT_WIDTH-1:0] current_fuel_flow_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] current_speed_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] current_pressure_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] current_temperature_reg;
+    reg signed [TOTAL_BIT_WIDTH-1:0] current_fuel_flow_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] current_speed_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] current_pressure_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] current_temperature_r;
 
     // Flags.
-    reg is_engine_broken_reg;
+    reg is_engine_broken_r;
 
     // States.
     reg [$clog2(TOTAL_STATE_COUNT+1)-1:0] current_state;
     reg [$clog2(TOTAL_STATE_COUNT+1)-1:0] next_state;
 
     // Gains.
-    reg signed [TOTAL_BIT_WIDTH-1:0] speed_gain_coeff_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] compressor_pressure_gain_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] combustion_heat_gain_reg;
-    reg signed [TOTAL_BIT_WIDTH-1:0] mass_overflow_cooling_gain_reg;
+    reg signed [TOTAL_BIT_WIDTH-1:0] speed_gain_coeff_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] compressor_pressure_gain_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] combustion_heat_gain_r;
+    reg signed [TOTAL_BIT_WIDTH-1:0] mass_overflow_cooling_gain_r;
 
     // ------- Wires. -------
     // CP.
@@ -103,11 +103,11 @@ module aircraft_engine_simulator_top #(
     wire signed [TOTAL_BIT_WIDTH-1:0] next_temperature;
 
     // ------- Assignments. -------
-    assign current_fuel_flow = current_fuel_flow_reg;
-    assign current_speed = current_speed_reg;
-    assign current_pressure = current_pressure_reg;
-    assign current_temperature = current_temperature_reg;
-    assign is_engine_broken = is_engine_broken_reg;
+    assign current_fuel_flow = current_fuel_flow_r;
+    assign current_speed = current_speed_r;
+    assign current_pressure = current_pressure_r;
+    assign current_temperature = current_temperature_r;
+    assign is_engine_broken = is_engine_broken_r;
 
     // ------- Modules. -------
     // Clock Prescaler (CP).
@@ -136,14 +136,14 @@ module aircraft_engine_simulator_top #(
     ) inst_calculate_target_values (
         // Inputs.
         // Dependents.
-        .current_fuel_flow(current_fuel_flow_reg), 
-        .current_rotational_speed(current_speed_reg),
+        .current_fuel_flow(current_fuel_flow_r), 
+        .current_rotational_speed(current_speed_r),
 
         // Gains.
-        .speed_gain_coeff(speed_gain_coeff_reg),
-        .compressor_pressure_gain(compressor_pressure_gain_reg),
-        .combustion_heat_gain(combustion_heat_gain_reg),
-        .mass_overflow_cooling_gain(mass_overflow_cooling_gain_reg),
+        .speed_gain_coeff(speed_gain_coeff_r),
+        .compressor_pressure_gain(compressor_pressure_gain_r),
+        .combustion_heat_gain(combustion_heat_gain_r),
+        .mass_overflow_cooling_gain(mass_overflow_cooling_gain_r),
 
         // Outputs.
         // Target States.
@@ -166,9 +166,9 @@ module aircraft_engine_simulator_top #(
     ) inst_calculate_derivatives (
         // Inputs.
         // Currents.
-        .current_rotational_speed(current_speed_reg), 
-        .current_compressor_pressure(current_pressure_reg), 
-        .current_exhaust_gas_temperature(current_temperature_reg),
+        .current_rotational_speed(current_speed_r), 
+        .current_compressor_pressure(current_pressure_r), 
+        .current_exhaust_gas_temperature(current_temperature_r),
 
         // Targets.
         .target_rotational_speed(target_speed), 
@@ -195,9 +195,9 @@ module aircraft_engine_simulator_top #(
     ) inst_calculate_next_steps (
         // Inputs.
         // Currents.
-        .current_rotational_speed(current_speed_reg), 
-        .current_compressor_pressure(current_pressure_reg), 
-        .current_exhaust_gas_temperature(current_temperature_reg),
+        .current_rotational_speed(current_speed_r), 
+        .current_compressor_pressure(current_pressure_r), 
+        .current_exhaust_gas_temperature(current_temperature_r),
 
         // Derivatives.
         .d_rotational_speed(d_speed), 
@@ -216,59 +216,59 @@ module aircraft_engine_simulator_top #(
             current_state <= STATE_IDLE;
 
             // Currents.
-            current_fuel_flow_reg <= 0;
-            current_speed_reg <= 0;
-            current_pressure_reg <= AMBIENT_PRESSURE;
-            current_temperature_reg <= AMBIENT_TEMPERATURE;
+            current_fuel_flow_r <= 0;
+            current_speed_r <= 0;
+            current_pressure_r <= AMBIENT_PRESSURE;
+            current_temperature_r <= AMBIENT_TEMPERATURE;
 
             // Flags.
-            is_engine_broken_reg <= 0;
+            is_engine_broken_r <= 0;
 
             // Gains.
-            speed_gain_coeff_reg <= 0;
-            compressor_pressure_gain_reg <= 0;
-            combustion_heat_gain_reg <= 0;
-            mass_overflow_cooling_gain_reg <= 0;
+            speed_gain_coeff_r <= 0;
+            compressor_pressure_gain_r <= 0;
+            combustion_heat_gain_r <= 0;
+            mass_overflow_cooling_gain_r <= 0;
         end
         else if (clk_en_1ms) begin
             // Updates the currents to nexts.
             current_state <= next_state;
 
-            current_speed_reg <= next_speed;
-            current_pressure_reg <= next_pressure;
-            current_temperature_reg <= next_temperature;
+            current_speed_r <= next_speed;
+            current_pressure_r <= next_pressure;
+            current_temperature_r <= next_temperature;
 
             // Flags once a violation occurs so that the system remains tripped.
             case (current_state)
                 STATE_IDLE: begin
-                    current_fuel_flow_reg <= 0;
-                    is_engine_broken_reg <= 0;
+                    current_fuel_flow_r <= 0;
+                    is_engine_broken_r <= 0;
                 end
 
                 STATE_RUNNING: begin
                     // Passes normal operational fuel flow and actual gain coefficients.
-                    current_fuel_flow_reg <= fuel_flow_cmd;
+                    current_fuel_flow_r <= fuel_flow_cmd;
 
-                    speed_gain_coeff_reg <= SPEED_GAIN_COEFF;
-                    compressor_pressure_gain_reg <= COMPRESSOR_PRESSURE_GAIN;
-                    combustion_heat_gain_reg <= COMBUSTION_HEAT_GAIN;
-                    mass_overflow_cooling_gain_reg <= MASS_OVERFLOW_COOLING_GAIN;
+                    speed_gain_coeff_r <= SPEED_GAIN_COEFF;
+                    compressor_pressure_gain_r <= COMPRESSOR_PRESSURE_GAIN;
+                    combustion_heat_gain_r <= COMBUSTION_HEAT_GAIN;
+                    mass_overflow_cooling_gain_r <= MASS_OVERFLOW_COOLING_GAIN;
 
-                    if ((current_speed_reg > MAX_ROTATIONAL_SPEED) || (current_temperature_reg > MAX_COMPRESSOR_TEMPERATURE)) is_engine_broken_reg <= 1;
+                    if ((current_speed_r > MAX_ROTATIONAL_SPEED) || (current_temperature_r > MAX_COMPRESSOR_TEMPERATURE)) is_engine_broken_r <= 1;
                 end
 
                 STATE_EMERGENCY: begin
                     // Forces fuel flow to zero and disables the gains to simulate an automatic emergency cut-off.
-                    current_fuel_flow_reg <= 0;
+                    current_fuel_flow_r <= 0;
 
-                    speed_gain_coeff_reg <= 0;
-                    compressor_pressure_gain_reg <= 0;
-                    combustion_heat_gain_reg <= 0;
-                    mass_overflow_cooling_gain_reg <= 0;
+                    speed_gain_coeff_r <= 0;
+                    compressor_pressure_gain_r <= 0;
+                    combustion_heat_gain_r <= 0;
+                    mass_overflow_cooling_gain_r <= 0;
                 end
 
                 STATE_SHUTDOWN: begin
-                    current_fuel_flow_reg <= 0;
+                    current_fuel_flow_r <= 0;
                 end
             endcase
         end
@@ -285,7 +285,7 @@ module aircraft_engine_simulator_top #(
 
             STATE_RUNNING: begin
                 // Passes normal operational fuel flow and actual gain coefficients.
-                if ((current_speed_reg > MAX_ROTATIONAL_SPEED) || (current_temperature_reg > MAX_COMPRESSOR_TEMPERATURE)) next_state = STATE_EMERGENCY;
+                if ((current_speed_r > MAX_ROTATIONAL_SPEED) || (current_temperature_r > MAX_COMPRESSOR_TEMPERATURE)) next_state = STATE_EMERGENCY;
             end
 
             STATE_EMERGENCY: begin

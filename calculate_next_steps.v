@@ -15,14 +15,23 @@ module calculate_next_steps #(
     parameter signed [31:0] AMBIENT_TEMPERATURE = 0
 )(
     // ------- Inputs. -------
+    // System Signals.
+    input wire clk, rst,
+
     // Currents.
-    input wire signed [31:0] current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature,
+    input wire signed [31:0] current_rotational_speed, 
+    input wire signed [31:0] current_compressor_pressure, 
+    input wire signed [31:0] current_exhaust_gas_temperature,
 
     // Derivatives.
-    input wire signed [31:0] d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature,
+    input wire signed [31:0] d_rotational_speed, 
+    input wire signed [31:0] d_compressor_pressure, 
+    input wire signed [31:0] d_exhaust_gas_temperature,
 
     // ------- Outputs. -------
-    output wire signed [31:0] next_rotational_speed, next_compressor_pressure, next_exhaust_gas_temperature
+    output wire signed [31:0] next_rotational_speed, 
+    output wire signed [31:0] next_compressor_pressure, 
+    output wire signed [31:0] next_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
