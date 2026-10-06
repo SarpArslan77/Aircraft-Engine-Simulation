@@ -38,67 +38,67 @@ module calculate_target_values #(
 
     // ------- Wires. -------
     // Rotational Speed (RS).
-    assign target_rotational_speed = (speed_mult_r2 >>> FRACTIONAL_BIT_WIDTH);
+    assign target_rotational_speed = (speed_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
 
     // Compressor Pressure (CP).
-    wire signed [TOTAL_BIT_WIDTH-1:0] speed_squared_q32 = speed_squared_r >>> FRACTIONAL_BIT_WIDTH;
+    wire signed [TOTAL_BIT_WIDTH-1:0] speed_squared_q32 = speed_squared_q >>> FRACTIONAL_BIT_WIDTH;
 
-    assign target_compressor_pressure = (AMBIENT_PRESSURE + (pressure_mult_r >>> FRACTIONAL_BIT_WIDTH));
+    assign target_compressor_pressure = (AMBIENT_PRESSURE + (pressure_mult_q >>> FRACTIONAL_BIT_WIDTH));
 
     // Exhaust Gas Temperature (EGT).
-    assign target_exhaust_gas_temperature = (AMBIENT_TEMPERATURE + (heat_mult_r2 >>> FRACTIONAL_BIT_WIDTH) - (cooling_mult_r2 >>> FRACTIONAL_BIT_WIDTH));
+    assign target_exhaust_gas_temperature = (AMBIENT_TEMPERATURE + (heat_mult_q2 >>> FRACTIONAL_BIT_WIDTH) - (cooling_mult_q2 >>> FRACTIONAL_BIT_WIDTH));
 
     // ------- Registers. -------
     // RS.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_r1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_r2;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q2;
 
     // CP.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_r;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_r;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_q;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_q;
 
     // EGT.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_r1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_r2;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_r1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_r2;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q2;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q2;
 
     // ------- Sequential Logic. -------
     always @(posedge clk) begin
         if (rst) begin
-            speed_mult_r1 <= 0;
-            speed_mult_r2 <= 0;
+            speed_mult_q1 <= 0;
+            speed_mult_q2 <= 0;
 
-            speed_squared_r <= 0;
-            pressure_mult_r <= 0;
+            speed_squared_q <= 0;
+            pressure_mult_q <= 0;
 
-            heat_mult_r1 <= 0;
-            heat_mult_r2 <= 0;
-            cooling_mult_r1 <= 0;
-            cooling_mult_r2 <= 0;
+            heat_mult_q1 <= 0;
+            heat_mult_q2 <= 0;
+            cooling_mult_q1 <= 0;
+            cooling_mult_q2 <= 0;
         end
         else begin
             // ------- Cycle 1: First Multiplications. -------
             // RS.
-            speed_mult_r1 <= current_fuel_flow * speed_gain_coeff;
+            speed_mult_q1 <= current_fuel_flow * speed_gain_coeff;
 
             // CP.
-            speed_squared_r <= current_rotational_speed * current_rotational_speed;
+            speed_squared_q <= current_rotational_speed * current_rotational_speed;
 
             // EGT.
-            heat_mult_r1 <= combustion_heat_gain * current_fuel_flow;
-            cooling_mult_r1 <= mass_overflow_cooling_gain * current_rotational_speed;
+            heat_mult_q1 <= current_fuel_flow * combustion_heat_gain;
+            cooling_mult_q1 <= current_rotational_speed * mass_overflow_cooling_gain;
 
             // ------- Cycle 2: Secondary Multiplications & Delay Balancing. -------
             // RS.
-            speed_mult_r2 <= speed_mult_r1;
+            speed_mult_q2 <= speed_mult_q1;
 
             // CP.
-            pressure_mult_r <= speed_squared_q32 * compressor_pressure_gain;
+            pressure_mult_q <= speed_squared_q32 * compressor_pressure_gain;
 
             // EGT.
-            heat_mult_r2 <= heat_mult_r1;
-            cooling_mult_r2 <= cooling_mult_r1;
+            heat_mult_q2 <= heat_mult_q1;
+            cooling_mult_q2 <= cooling_mult_q1;
         end
     end
 
