@@ -1,9 +1,13 @@
 # Generic VSCode Files.
 /__pycache__
+/.vscode
 
 # Organization Helper Files.
 /combined_code.txt
 /code_to_txt.py
+
+# Extra Documents.
+/Aircraft_Engine_Project_Plan.pdf
 
 # Outputs / Results.
 /software_results.csv

@@ -37,17 +37,23 @@ module aircraft_engine_simulator_top #(
     // System Signals.
     input wire clk, rst,
 
-    // Controls.
-    input wire start_engine,
-    input wire restart_engine,
-
-    // Commands.
-    input wire signed [31:0] fuel_flow_cmd,
+    // Bus Signals.
+    input wire [31:0] bus_addr,
+    input wire [31:0] bus_wdata,
+    input wire bus_write_en,
+    input wire bus_read_en,
 
     // ------- Outputs. -------
     // Currents.
     output wire signed [31:0] current_fuel_flow,
     output wire signed [31:0] current_speed, current_pressure, current_temperature,
+
+    // Bus Signals.
+    output wire [31:0] bus_rdata,
+
+    // Engine Controls.
+    output wire fault_compressor_stall,
+    output wire fault_sensor_corruption,
 
     // Flags.
     output wire is_engine_broken
@@ -87,6 +93,11 @@ module aircraft_engine_simulator_top #(
     // CP.
     wire clk_en_1ms;
 
+    // RI.
+    wire start_engine;
+    wire restart_engine;
+    wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_command;
+
     // TC.
     wire signed [TOTAL_BIT_WIDTH-1:0] target_speed;
     wire signed [TOTAL_BIT_WIDTH-1:0] target_pressure;
@@ -123,6 +134,40 @@ module aircraft_engine_simulator_top #(
         .clk_en_1ms(clk_en_1ms)
     );
 
+    // Register Interface (RI).
+    register_interface #(
+        // Parameters.
+        .TOTAL_BIT_WIDTH(TOTAL_BIT_WIDTH)
+    ) inst_register_interface (
+        // Inputs.
+        .clk(clk), .rst(rst),
+
+        // Bus Signals.
+        .bus_addr(bus_addr),
+        .bus_wdata(bus_wdata),
+        .bus_write_en(bus_write_en),
+        .bus_read_en(bus_read_en),
+
+        // Dependents.
+        .current_speed(current_speed_r),
+        .current_pressure(current_pressure_r),
+        .current_temperature(current_temperature_r),
+        .is_engine_broken(is_engine_broken_r),
+
+        // Outputs.
+        // Bus Signals.
+        .bus_rdata(bus_rdata),
+
+        // Engine Controls.
+        .start_engine(start_engine),
+        .restart_engine(restart_engine),
+
+        .fuel_flow_command(fuel_flow_command),
+
+        .fault_compressor_stall(fault_compressor_stall),
+        .fault_sensor_corruption(fault_sensor_corruption)
+    );
+
     // Target Calculations (TC).
     calculate_target_values #(
         // Parameters.
@@ -135,6 +180,8 @@ module aircraft_engine_simulator_top #(
         .AMBIENT_TEMPERATURE(AMBIENT_TEMPERATURE)
     ) inst_calculate_target_values (
         // Inputs.
+        .clk(clk), .rst(rst),
+
         // Dependents.
         .current_fuel_flow(current_fuel_flow_r), 
         .current_rotational_speed(current_speed_r),
@@ -165,6 +212,8 @@ module aircraft_engine_simulator_top #(
         .PRE_CALCULATED_THERMAL_TIME_CONST(PRE_CALCULATED_THERMAL_TIME_CONST)
     ) inst_calculate_derivatives (
         // Inputs.
+        .clk(clk), .rst(rst),
+
         // Currents.
         .current_rotational_speed(current_speed_r), 
         .current_compressor_pressure(current_pressure_r), 
@@ -247,12 +296,12 @@ module aircraft_engine_simulator_top #(
 
                 STATE_RUNNING: begin
                     // Passes normal operational fuel flow and actual gain coefficients.
-                    current_fuel_flow_r <= fuel_flow_cmd;
+                    current_fuel_flow_r <= fuel_flow_command;
 
                     speed_gain_coeff_r <= SPEED_GAIN_COEFF;
                     compressor_pressure_gain_r <= COMPRESSOR_PRESSURE_GAIN;
                     combustion_heat_gain_r <= COMBUSTION_HEAT_GAIN;
-                    mass_overflow_cooling_gain_r <= MASS_OVERFLOW_COOLING_GAIN;
+                    mass_overflow_cooling_gain_r <= fault_compressor_stall ? 0 : MASS_OVERFLOW_COOLING_GAIN;
 
                     if ((current_speed_r > MAX_ROTATIONAL_SPEED) || (current_temperature_r > MAX_COMPRESSOR_TEMPERATURE)) is_engine_broken_r <= 1;
                 end

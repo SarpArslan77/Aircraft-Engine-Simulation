@@ -2,10 +2,17 @@
 #* main.py
 
 #* ======= Libraries =======
+# ------- Native. -------
+from typing import List
+
 # ------- Externals. -------
 from numpy import float64
 from numpy.typing import NDArray
 from pathlib import Path
+from cocotb_tools.runner import (
+    get_runner, 
+    Runner
+)
 
 # ------- Customs. -------
 from aircraft_engine_simulator_floating import (
@@ -51,6 +58,22 @@ if __name__ == "__main__":
 
     INT_BIT_WIDTH: int = 16
     FRACTIONAL_BIT_WIDTH: int = 16
+
+    MAIN_DIR_PATH = Path(__file__).resolve().parent
+
+    # Hardware Simulation.
+    TOP_MODULE: str = "aircraft_engine_simulator_top"
+
+    VERILOG_FILES: List[Path] = [
+        MAIN_DIR_PATH / "clock_prescaler.v",
+        MAIN_DIR_PATH / "calculate_target_values.v",
+        MAIN_DIR_PATH / "calculate_derivatives.v",
+        MAIN_DIR_PATH / "calculate_next_steps.v",
+        MAIN_DIR_PATH / "register_interface.v",
+        MAIN_DIR_PATH / TOP_MODULE / ".v"
+    ]
+
+    
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
@@ -102,7 +125,7 @@ if __name__ == "__main__":
         max_rotational_speed_quantized = quantize_floats(MAX_ROTATIONAL_SPEED, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
         max_compressor_temperature_quantized = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
 
-        software_results_file_path = Path(__file__).resolve().parent
+        software_results_file_path = MAIN_DIR_PATH
     )
     
     aircraft_engine_simulator_fixed_point = AircraftEngineSimulatorFixedPoint(
@@ -246,4 +269,27 @@ if __name__ == "__main__":
         histories_fixed_point_scaled = (fuel_flow_history_fixed_point_scaled, speed_history_fixed_point_scaled, pressure_history_fixed_point_scaled, temperature_history_fixed_point_scaled),
 
         time_history = time_history
+    )
+
+    # ------- Hardware Simulation. -------
+    # Selects the Vivado 'xsim' runner.
+    runner: Runner = get_runner("xsim")
+
+    # Compiles the verilog files.
+    runner.build(
+        verilog_sources = VERILOG_FILES,
+        hdl_toplevel = TOP_MODULE,
+        #TODO AC
+        parameters = {
+            "SYSTEM_CLK_FREQ": 10,
+            "TARGET_CLK_FREQ": 1
+        },
+        #TODO AC
+        always = True
+    )
+
+    # Runs the testbench.
+    runner.test(
+        hdl_toplevel = TOP_MODULE,
+        test_module = "test_engine"
     )
