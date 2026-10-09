@@ -34,9 +34,9 @@ module calculate_next_steps #(
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
 
     // Maximum Possible Numbers.
-    localparam MAX_ROTATIONAL_SPEED = (1 << (TOTAL_BIT_WIDTH-1)) - 1;
-    localparam MAX_COMPRESSOR_PRESSURE = (1 << (TOTAL_BIT_WIDTH-1)) - 1;
-    localparam MAX_EXHAUST_GAS_TEMPERATURE = (1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_ROTATIONAL_SPEED = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_COMPRESSOR_PRESSURE = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_EXHAUST_GAS_TEMPERATURE = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
 
     //* ======= Wires. =======
     // ------- Rotational Speed. -------

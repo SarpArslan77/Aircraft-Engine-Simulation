@@ -36,8 +36,8 @@ class ConfigAircraftEngineSimulatorFixedPoint:
     based on the specified integer and fractional bit widths.
 
     Attributes:
-        int_bit_width (float): Bit width allocated for the integer portion of the representation (including sign bit).
-        fractional_bit_width (float): Bit width allocated for the fractional portion.
+        int_bit_width (int): Bit width allocated for the integer portion of the representation (including sign bit).
+        fractional_bit_width (int): Bit width allocated for the fractional portion.
         simulation_step (int): Discrete integration time step (dt) used in the Euler solver [s].
         total_simulation_time (int): Total physical duration of the simulation run [s].
         ambient_pressure_quantized (int): Quantized baseline atmospheric air pressure (P_amb) [Raw LSBs].
@@ -53,8 +53,8 @@ class ConfigAircraftEngineSimulatorFixedPoint:
         max_compressor_temperature_quantized (int): Quantized safety limit for engine thermal meltdown failures [Raw LSBs].
     """
     # ------- Data Representation. -------
-    int_bit_width: float
-    fractional_bit_width: float
+    int_bit_width: int
+    fractional_bit_width: int
 
     # ------- Simulation. -------
     simulation_step: int

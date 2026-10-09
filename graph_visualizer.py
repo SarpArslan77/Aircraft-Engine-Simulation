@@ -239,7 +239,9 @@ class GraphVisualizer:
             histories_floating: histories_type,
             histories_fixed_point_scaled: histories_type,
 
-            time_history: NDArray[float64]
+            time_history: NDArray[float64],
+
+            show_plots: bool
     ) -> None:
         # Unpacks the fuel flow and speed histories.
         fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating = histories_floating
@@ -458,4 +460,5 @@ class GraphVisualizer:
                 axes = axes
             )
 
-        plt.show()
+        if show_plots:
+            plt.show()

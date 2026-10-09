@@ -69,8 +69,7 @@ class EngineTester:
         return int(dut.bus_rdata.value)
 
     # ------- The Smoke Test. -------
-    @cocotb.test()
-    async def test_engine_smoke(
+    async def run_smoke_test(
         self,
         dut: SimHandleBase
     ) -> None:
@@ -158,3 +157,20 @@ class EngineTester:
         dut._log.info(f"Read-Data: Speed: {speed_scaled:.2f}, Pressure: {pressure_scaled:.2f} kPa, Temperature: {temperature_scaled} *C")
 
         dut._log.info("Smoke test PASSED successfully!")
+
+#* ======= Cocotb Test Entry Point =======
+@cocotb.test()
+async def test_engine_smoke(dut: SimHandleBase) -> None:
+    config = ConfigEngineTester(
+        addr_control = 0x00,
+        addr_status = 0x04,
+        addr_fuel_flow_command = 0x08,
+        addr_speed = 0x0C,
+        addr_pressure = 0x10,
+        addr_temperature = 0x14,
+        addr_fault_injection = 0x18,
+    )
+
+    tester = EngineTester(config_engine_tester=config)
+    
+    await tester.run_smoke_test(dut)

@@ -3,16 +3,17 @@
 
 #* ======= Libraries =======
 # ------- Native. -------
+import os
+from pathlib import Path
 from typing import List
 
 # ------- Externals. -------
-from numpy import float64
-from numpy.typing import NDArray
-from pathlib import Path
 from cocotb_tools.runner import (
     get_runner, 
     Runner
 )
+from numpy import float64
+from numpy.typing import NDArray
 
 # ------- Customs. -------
 from aircraft_engine_simulator_floating import (
@@ -35,6 +36,14 @@ from verify_software import SoftwareVerifier
 
 #* ======= Main Loop =======
 if __name__ == "__main__":
+    # ------- Configurations. -------
+    # Forces Python and Cocotb to see iverilog directly.
+    #TODO FTH
+    IVERILOG_BIN_DIR_PATH: str = r"C:\iverilog\bin"
+    #TODO AC
+    if IVERILOG_BIN_DIR_PATH not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = IVERILOG_BIN_DIR_PATH + os.pathsep + os.environ.get("PATH", "")
+
     # ------- Constants. -------
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
@@ -70,7 +79,7 @@ if __name__ == "__main__":
         MAIN_DIR_PATH / "calculate_derivatives.v",
         MAIN_DIR_PATH / "calculate_next_steps.v",
         MAIN_DIR_PATH / "register_interface.v",
-        MAIN_DIR_PATH / TOP_MODULE / ".v"
+        MAIN_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
     
@@ -205,7 +214,6 @@ if __name__ == "__main__":
     graph_visualizer = GraphVisualizer(
         config_graph_visualizer = config_graph_visualizer
     )
-
     # ------- Workflow. -------
     # Runs the aircraft engine simulation both floating and fixed point.
     fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating, time_history = aircraft_engine_simulator_floating.run_simulation(
@@ -268,12 +276,14 @@ if __name__ == "__main__":
         histories_floating = (fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating),
         histories_fixed_point_scaled = (fuel_flow_history_fixed_point_scaled, speed_history_fixed_point_scaled, pressure_history_fixed_point_scaled, temperature_history_fixed_point_scaled),
 
-        time_history = time_history
+        time_history = time_history,
+
+        show_plots = False
     )
 
     # ------- Hardware Simulation. -------
-    # Selects the Vivado 'xsim' runner.
-    runner: Runner = get_runner("xsim")
+    # Selects the iCarus Verilog runner.
+    runner: Runner = get_runner("icarus")
 
     # Compiles the verilog files.
     runner.build(
