@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List
 
 # ------- Externals. -------
+#? get_runner(): Factory function, returns a simulator-specific controller.
 from cocotb_tools.runner import (
     get_runner, 
     Runner
@@ -47,6 +48,9 @@ if __name__ == "__main__":
     # ------- Constants. -------
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
+    INT_BIT_WIDTH: int = 16
+    FRACTIONAL_BIT_WIDTH: int = 16
+
     SIMULATION_STEP: float = 1e-3
     TOTAL_SIMULATION_TIME: float = 20.0 # [s].
 
@@ -65,12 +69,25 @@ if __name__ == "__main__":
     MAX_ROTATIONAL_SPEED: float = 110.0
     MAX_COMPRESSOR_TEMPERATURE: float = 1100.0
 
-    INT_BIT_WIDTH: int = 16
-    FRACTIONAL_BIT_WIDTH: int = 16
+    # Quantized Values.
+    AMBIENT_PRESSURE_QUANTIZED: int = quantize_floats(AMBIENT_PRESSURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    AMBIENT_TEMPERATURE_QUANTIZED: int = quantize_floats(AMBIENT_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
 
-    MAIN_DIR_PATH = Path(__file__).resolve().parent
+    PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / ROTOR_INERTIAL_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / PRESSURE_VOLUME_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / THERMAL_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+
+    SPEED_GAIN_COEFF_QUANTIZED: int = quantize_floats(SPEED_GAIN_COEFF, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    COMPRESSOR_PRESSURE_GAIN_QUANTIZED: int = quantize_floats(COMPRESSOR_PRESSURE_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    COMBUSTION_HEAT_GAIN_QUANTIZED: int = quantize_floats(COMBUSTION_HEAT_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    MASS_OVERFLOW_COOLING_GAIN_QUANTIZED: int = quantize_floats(MASS_OVERFLOW_COOLING_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+
+    MAX_ROTATIONAL_SPEED_QUANTIZED: int = quantize_floats(MAX_ROTATIONAL_SPEED, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+    MAX_COMPRESSOR_TEMPERATURE_QUANTIZED: int = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
 
     # Hardware Simulation.
+    MAIN_DIR_PATH = Path(__file__).resolve().parent
+
     TOP_MODULE: str = "aircraft_engine_simulator_top"
 
     VERILOG_FILES: List[Path] = [
@@ -81,8 +98,6 @@ if __name__ == "__main__":
         MAIN_DIR_PATH / "register_interface.v",
         MAIN_DIR_PATH / f"{TOP_MODULE}.v"
     ]
-
-    
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
@@ -119,20 +134,20 @@ if __name__ == "__main__":
         simulation_step = SIMULATION_STEP,
         total_simulation_time = TOTAL_SIMULATION_TIME,
     
-        ambient_pressure_quantized = quantize_floats(AMBIENT_PRESSURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        ambient_temperature_quantized = quantize_floats(AMBIENT_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
+        ambient_pressure_quantized = AMBIENT_PRESSURE_QUANTIZED,
+        ambient_temperature_quantized = AMBIENT_TEMPERATURE_QUANTIZED,
     
-        rotor_inertial_time_const_quantized = quantize_floats(ROTOR_INERTIAL_TIME_CONST, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        pressure_volume_time_const_quantized = quantize_floats(PRESSURE_VOLUME_TIME_CONST, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        thermal_time_const_quantized = quantize_floats(THERMAL_TIME_CONST, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
+        pre_calculated_rotor_inertial_time_const_quantized = PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
+        pre_calculated_pressure_volume_time_const_quantized = PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
+        pre_calculated_thermal_time_const_quantized = PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
     
-        speed_gain_coeff_quantized = quantize_floats(SPEED_GAIN_COEFF, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        compressor_pressure_gain_quantized = quantize_floats(COMPRESSOR_PRESSURE_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        combustion_heat_gain_quantized = quantize_floats(COMBUSTION_HEAT_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        mass_overflow_cooling_gain_quantized = quantize_floats(MASS_OVERFLOW_COOLING_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
+        speed_gain_coeff_quantized = SPEED_GAIN_COEFF_QUANTIZED,
+        compressor_pressure_gain_quantized = COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
+        combustion_heat_gain_quantized = COMBUSTION_HEAT_GAIN_QUANTIZED,
+        mass_overflow_cooling_gain_quantized = MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
     
-        max_rotational_speed_quantized = quantize_floats(MAX_ROTATIONAL_SPEED, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
-        max_compressor_temperature_quantized = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True),
+        max_rotational_speed_quantized = MAX_ROTATIONAL_SPEED_QUANTIZED,
+        max_compressor_temperature_quantized = MAX_COMPRESSOR_TEMPERATURE_QUANTIZED,
 
         software_results_file_path = MAIN_DIR_PATH
     )
@@ -285,16 +300,39 @@ if __name__ == "__main__":
     # Selects the iCarus Verilog runner.
     runner: Runner = get_runner("icarus")
 
+    #? .build(): Translates Python configuration into exact command-line
+    #   arguments required by target compiler.
+    #   - verilog_sources: List of paths to the source files.
+    #   - hdl_toplevel: Name of the top-level module.
+    #   - parameters: Dictionary mapping hdl parameters.
+    #   - always: True: Forces a complete recompile every time.
+    #             False: Checks file timestamps and skips recompiling if source haven't changed.
     # Compiles the verilog files.
     runner.build(
         verilog_sources = VERILOG_FILES,
         hdl_toplevel = TOP_MODULE,
-        #TODO AC
         parameters = {
             "SYSTEM_CLK_FREQ": 10,
-            "TARGET_CLK_FREQ": 1
+            "TARGET_CLK_FREQ": 1,
+
+            "INTEGER_BIT_WIDTH": INT_BIT_WIDTH,
+            "FRACTIONAL_BIT_WIDTH": FRACTIONAL_BIT_WIDTH,
+
+            "AMBIENT_PRESSURE": AMBIENT_PRESSURE_QUANTIZED,
+            "AMBIENT_TEMPERATURE": AMBIENT_TEMPERATURE_QUANTIZED,
+
+            "SPEED_GAIN_COEFF": SPEED_GAIN_COEFF_QUANTIZED,
+            "COMPRESSOR_PRESSURE_GAIN": COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
+            "COMBUSTION_HEAT_GAIN": COMBUSTION_HEAT_GAIN_QUANTIZED,
+            "MASS_OVERFLOW_COOLING_GAIN": MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
+
+            "PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
+            "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
+            "PRE_CALCULATED_THERMAL_TIME_CONST": PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
+
+            "MAX_ROTATIONAL_SPEED": MAX_ROTATIONAL_SPEED_QUANTIZED,
+            "MAX_COMPRESSOR_TEMPERATURE": MAX_COMPRESSOR_TEMPERATURE_QUANTIZED
         },
-        #TODO AC
         always = True
     )
 

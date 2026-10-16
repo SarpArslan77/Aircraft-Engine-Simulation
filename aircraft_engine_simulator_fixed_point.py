@@ -33,41 +33,44 @@ class ConfigAircraftEngineSimulatorFixedPoint:
     Configuration parameters for the discrete fixed-point engine simulator.
 
     All physical floating-point quantities are pre-scaled and quantized into raw signed integers
-    based on the specified integer and fractional bit widths.
+    based on the specified integer and fractional bit widths. Runtime divisions are eliminated by
+    pre-calculating the discrete Euler integration factors (dt / tau).
 
     Attributes:
         int_bit_width (int): Bit width allocated for the integer portion of the representation (including sign bit).
         fractional_bit_width (int): Bit width allocated for the fractional portion.
-        simulation_step (int): Discrete integration time step (dt) used in the Euler solver [s].
-        total_simulation_time (int): Total physical duration of the simulation run [s].
+        simulation_step (float): Discrete integration time step (dt) used in the Euler solver [s].
+        total_simulation_time (float): Total physical duration of the simulation run [s].
         ambient_pressure_quantized (int): Quantized baseline atmospheric air pressure (P_amb) [Raw LSBs].
         ambient_temperature_quantized (int): Quantized baseline atmospheric air temperature (T_amb) [Raw LSBs].
-        rotor_inertial_time_const_quantized (int): Quantized rotor mechanical lag time constant (tau_N) [Raw LSBs].
-        pressure_volume_time_const_quantized (int): Quantized internal air pressure lag time constant (tau_P) [Raw LSBs].
-        thermal_time_const_quantized (int): Quantized exhaust gas temperature lag time constant (tau_T) [Raw LSBs].
+        pre_calculated_rotor_inertial_time_const_quantized (int): Pre-scaled and quantized discrete mechanical integration factor (dt / tau_N) eliminating division for rotor lag [Raw LSBs].
+        pre_calculated_pressure_volume_time_const_quantized (int): Pre-scaled and quantized discrete pressure integration factor (dt / tau_P) eliminating division for air pressure lag [Raw LSBs].
+        pre_calculated_thermal_time_const_quantized (int): Pre-scaled and quantized discrete thermal integration factor (dt / tau_T) eliminating division for exhaust temperature lag [Raw LSBs].
         speed_gain_coeff_quantized (int): Quantized speed gain coefficient (K_N) mapping fuel to target speed [Raw LSBs].
         compressor_pressure_gain_quantized (int): Quantized pressure gain coefficient (K_P) mapping speed squared to pressure [Raw LSBs].
         combustion_heat_gain_quantized (int): Quantized combustion thermal coefficient (K_heat) mapping fuel to heat [Raw LSBs].
         mass_overflow_cooling_gain_quantized (int): Quantized airflow cooling coefficient (K_cool) mapping speed to cooling [Raw LSBs].
         max_rotational_speed_quantized (int): Quantized safety limit for engine overspeed failures [Raw LSBs].
         max_compressor_temperature_quantized (int): Quantized safety limit for engine thermal meltdown failures [Raw LSBs].
+        software_results_file_path (Path): Filesystem path directory used to export reference verification datasets.
     """
+
     # ------- Data Representation. -------
     int_bit_width: int
     fractional_bit_width: int
 
     # ------- Simulation. -------
-    simulation_step: int
+    simulation_step: float
     total_simulation_time: int
 
     # ------- Ambient Conditions. -------
     ambient_pressure_quantized: int
     ambient_temperature_quantized: int
 
-    # ------- Time Constants (Inertia). -------
-    rotor_inertial_time_const_quantized: int
-    pressure_volume_time_const_quantized: int
-    thermal_time_const_quantized: int
+    # ------- Pre-Calculated & Quantized Time Constants (Inertia). -------
+    pre_calculated_rotor_inertial_time_const_quantized: int
+    pre_calculated_pressure_volume_time_const_quantized: int
+    pre_calculated_thermal_time_const_quantized: int
 
     # ------- Gains. -------
     speed_gain_coeff_quantized: int
@@ -99,6 +102,7 @@ class AircraftEngineSimulatorFixedPoint:
                 The configuration dataclass holding fixed-point representation parameters, 
                 quantized environment conditions, and simulation parameters.
         """
+        
         self._cfg: ConfigAircraftEngineSimulatorFixedPoint = config_aircraft_engine_simulator_fixed_point
 
     def _fetch_current_fuel_flow(
@@ -227,21 +231,15 @@ class AircraftEngineSimulatorFixedPoint:
         # Unpacks the parameters.
         current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature = current_values
         target_rotational_speed, target_compressor_pressure, target_exhaust_gas_temperature = target_values
-
-        # Optimizes division constants away.
-        pre_calculated_rotor_inertial_time_const_quantized: int = round((self._cfg.simulation_step / self._cfg.rotor_inertial_time_const_quantized) * (1 << (2 * self._cfg.fractional_bit_width)))
-        pre_calculated_pressure_volume_time_const_quantized: int = round((self._cfg.simulation_step / self._cfg.pressure_volume_time_const_quantized) * (1 << (2 * self._cfg.fractional_bit_width)))
-        pre_calculated_thermal_time_const_quantized: int = round((self._cfg.simulation_step / self._cfg.thermal_time_const_quantized) * (1 << (2 * self._cfg.fractional_bit_width)))
-
         # ------- Calculates the derivatives. -------
         # Rotational Speed.
-        d_rotational_speed: int = pre_calculated_rotor_inertial_time_const_quantized * (target_rotational_speed - current_rotational_speed)
+        d_rotational_speed: int = self._cfg.pre_calculated_rotor_inertial_time_const_quantized * (target_rotational_speed - current_rotational_speed)
 
         # Compressor Pressure.
-        d_compressor_pressure: int = pre_calculated_pressure_volume_time_const_quantized * (target_compressor_pressure - current_compressor_pressure)
+        d_compressor_pressure: int = self._cfg.pre_calculated_pressure_volume_time_const_quantized * (target_compressor_pressure - current_compressor_pressure)
 
         # Exhaust Gas Temperature.
-        d_exhaust_gas_temperature: int = pre_calculated_thermal_time_const_quantized * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
+        d_exhaust_gas_temperature: int = self._cfg.pre_calculated_thermal_time_const_quantized * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
 
         return (d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature)
 

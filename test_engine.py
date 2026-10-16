@@ -7,17 +7,49 @@ from dataclasses import dataclass
 
 # ------- Externals. -------
 #TODO AC
+#? cocotb (Coroutine-based Co-simulation Testbench environment):
+#   Open-source, Python-based hardware verification framework for RTL designs.
 import cocotb
+#? Clock: Utility class, drives an periodic square-wave signal .
+#   - signal: Input clock pin.
+#   - period: Total duration of one full clock cycle.
+#   - units: Physical unit of time for the period.
 from cocotb.clock import Clock
+#? RisingEdge: Trigger, pauses the Python coroutine until the signal pulses high.
+#   - signal: Wire, register or pin object, that gets monitored.
+#? ClockCycles: Trigger, pauses the the coroutine until the signal has pulsed.
+#   for a given number of active edges.
+#   - signal: Clock signal to count edges on.
+#   - num_cycles: Total number of clock edges to wait before resuming.
+#   - rising: Counts rising edges (True: 0 -> 1 & False: 1 -> 0).
 from cocotb.triggers import (
     RisingEdge,
     ClockCycles
 )
+#? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
+#   reg or port inside the simulatrors netlist.
 from cocotb.handle import SimHandleBase
 
 #* ======= Aircraft Engine Tester's Config Dataclass =======
 @dataclass(frozen = True)
 class ConfigEngineTester:
+    """
+    Configuration dataclass holding memory-mapped register address offsets.
+
+    Defines the standard 32-bit Control and Status Register (CSR) bus offsets
+    used by the Cocotb verification harness to communicate with the hardware
+    register interface over standard VPI.
+
+    Attributes:
+        addr_control (int): Byte address offset for the primary Engine Control Register (0x00).
+        addr_status (int): Byte address offset for the read-only Safety Status Register (0x04).
+        addr_fuel_flow_command (int): Byte address offset for the commanded Fuel Flow Register in Q16.16 format (0x08).
+        addr_speed (int): Byte address offset for reading the telemetry Rotational Speed Register in Q16.16 format (0x0C).
+        addr_pressure (int): Byte address offset for reading the telemetry Compressor Pressure Register in Q16.16 format (0x10).
+        addr_temperature (int): Byte address offset for reading the telemetry Exhaust Gas Temperature Register in Q16.16 format (0x14).
+        addr_fault_injection (int): Byte address offset for activating internal hardware fault-injection bits (0x18).
+    """
+
     # ------- Address Map Offsets. -------
     addr_control: int
     addr_status: int
@@ -33,14 +65,41 @@ class EngineTester:
             self,
             config_engine_tester: ConfigEngineTester
     ) -> None:
+        """
+        Initializes the EngineTester verification harness with memory map configurations.
+
+        Args:
+            config_engine_tester (ConfigEngineTester): 
+                The configuration dataclass instance specifying the register interface 
+                memory-mapped address offsets.
+        """
+
         self.cfg: ConfigEngineTester = config_engine_tester
 
+    #? async: Defines a coroutine function.
     async def _bus_write(
             self,
             dut: SimHandleBase,
             addr: int,
             data: int
     ) -> None:
+        """
+        Executes a synchronous single-cycle write transaction over the custom register bus.
+
+        Drives the target memory address and 32-bit data payload onto the bus, asserts the
+        write enable flag ('bus_write_en') on a rising clock edge, and de-asserts it on the
+        subsequent edge to guarantee deterministic register latching.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            addr (int): Target register memory-mapped byte address offset.
+            data (int): 32-bit data word (raw signed or unsigned integer) to write into the register.
+
+        Returns:
+            None
+        """
+
+        #? await: Pauses execution of the current coroutine.
         await RisingEdge(dut.clk)
         dut.bus_addr.value = addr
         dut.bus_wdata.value = data
@@ -55,6 +114,21 @@ class EngineTester:
             dut: SimHandleBase,
             addr: int
     ) -> int:
+        """
+        Executes a synchronous two-cycle read transaction over the custom register bus.
+
+        Asserts the target memory address and the read enable strobe ('bus_read_en') on a
+        rising clock edge, de-asserts the strobe on the next edge, and samples the resulting
+        read data payload ('bus_rdata') after one clock cycle of bus read latency.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            addr (int): Target register memory-mapped byte address offset to read from.
+
+        Returns:
+            int: The 32-bit raw integer data word returned on 'bus_rdata'.
+        """
+
         await RisingEdge(dut.clk)
         dut.bus_addr.value = addr
         dut.bus_read_en.value = 1
@@ -73,6 +147,32 @@ class EngineTester:
         self,
         dut: SimHandleBase
     ) -> None:
+        """
+        Executes an end-to-end basic functional sanity and smoke test sequence on the RTL engine.
+
+        The test sequence verifies baseline hardware functionality:
+        1. Instantiates and launches an asynchronous 100 MHz simulation clock (10 ns period).
+        2. Applies an active-high synchronous reset sequence for 5 clock cycles.
+        3. Polls the engine status register to confirm baseline healthy operational state (status = 0).
+        4. Writes a 10 kg/h idle fuel flow command in fixed-point Q16.16 format and verifies loopback read.
+        5. Commands engine ignition by asserting Bit 0 of the Control Register (start_engine).
+        6. Advances discrete simulation time across 50 clock cycles to allow Euler integration.
+        7. Reads back real-time engine telemetry (Speed, Pressure, Temperature) via the bus,
+           scales the raw Q16.16 integers back to engineering units, and logs formatted output.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+
+        Raises:
+            AssertionError: If initial status is non-zero or if the fuel command register
+                            fails to store and return the commanded fixed-point value.
+
+        Returns:
+            None
+        """
+
+        #? cocotb.start_soon(): Task scheduler, launches an asynchronous coroutine
+        #   in the background (concurenntly).
         # Starts a 100 MhZ clock (10 ns period).
         cocotb.start_soon(
             Clock(dut.clk, 10, "ns").start()
@@ -94,6 +194,7 @@ class EngineTester:
             num_cycles = 5
         )
 
+        #? _log.info: Logging interface.
         dut._log.info(msg = "Reset complete. Verifying initial status...")
 
         # Reads the status register (0: engine healthy).
@@ -159,8 +260,24 @@ class EngineTester:
         dut._log.info("Smoke test PASSED successfully!")
 
 #* ======= Cocotb Test Entry Point =======
+#? @cocotb.test(): Function decorator, registers an 'async def' function
+#   as an official executable test case in the verification suite.
 @cocotb.test()
 async def test_engine_smoke(dut: SimHandleBase) -> None:
+    """
+    Cocotb entry point test case verifying RTL engine synthesis sanity and bus connectivity.
+
+    Sets up the register map configuration, instantiates the EngineTester testbench harness,
+    and coordinates execution of the basic functional smoke test through the Cocotb scheduler.
+
+    Args:
+        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module 
+                            ('aircraft_engine_simulator_top') injected by Cocotb.
+
+    Returns:
+        None
+    """
+    
     config = ConfigEngineTester(
         addr_control = 0x00,
         addr_status = 0x04,
