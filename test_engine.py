@@ -142,6 +142,49 @@ class EngineTester:
 
         return int(dut.bus_rdata.value)
 
+    async def _perform_synchronous_reset(
+            self,
+            dut: SimHandleBase
+    ) -> None:
+        # Resets the device.
+        dut.rst.value = 1
+        dut.bus_write_en.value = 0
+        dut.bus_read_en.value = 0
+        dut.bus_addr.value = 0
+        dut.bus_wdata.value = 0
+        await ClockCycles(
+            signal = dut.clk,
+            num_cycles = 5
+        )
+        dut.rst.value = 0
+        await ClockCycles(
+            signal = dut.clk,
+            num_cycles = 5
+        )
+
+        #? _log.info: Logging interface.
+        dut._log.info(msg = "Reset complete. Verifying initial status...")
+
+        # Reads the status register (0: engine healthy).
+        status: int = await self._bus_read(
+            dut = dut,
+            addr = self.cfg.addr_status
+        )
+        assert (status == 0), f"Expected status '0' after reset, got {status}"
+        dut._log.info(msg = "Status register verified: 0 (Normal)")
+
+    async def _start_engine(
+            self,
+            dut: SimHandleBase
+    ) -> None:
+        # Starts the engine.
+        await self._bus_write(
+            dut = dut,
+            addr = self.cfg.addr_control,
+            data = 1
+        )
+        dut._log.info(msg = f"Engine start commanded!")
+
     # ------- The Smoke Test. -------
     async def run_smoke_test(
         self,
@@ -179,31 +222,7 @@ class EngineTester:
         )
 
         # Resets the device.
-        dut.rst.value = 1
-        dut.bus_write_en.value = 0
-        dut.bus_read_en.value = 0
-        dut.bus_addr.value = 0
-        dut.bus_wdata.value = 0
-        await ClockCycles(
-            signal = dut.clk,
-            num_cycles = 5
-        )
-        dut.rst.value = 0
-        await ClockCycles(
-            signal = dut.clk,
-            num_cycles = 5
-        )
-
-        #? _log.info: Logging interface.
-        dut._log.info(msg = "Reset complete. Verifying initial status...")
-
-        # Reads the status register (0: engine healthy).
-        status: int = await self._bus_read(
-            dut = dut,
-            addr = self.cfg.addr_status
-        )
-        assert (status == 0), f"Expected status '0' after reset, got {status}"
-        dut._log.info(msg = "Status register verified: 0 (Normal)")
+        self._perform_synchronous_reset(dut = dut)
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
         fuel_command_q16: int = 10 << 16 #TODO FTH
@@ -259,7 +278,28 @@ class EngineTester:
 
         dut._log.info("Smoke test PASSED successfully!")
 
-#* ======= Cocotb Test Entry Point =======
+    # ------- Golden Reference Verification Test. -------
+    async def run_golden_reference_verification_test(
+            self,
+            dut: SimHandleBase
+    ) -> None:
+        # Starts a 100 MhZ clock.
+        cocotb.start_soon(
+            Clock(dut.clk, 10, "ns").start()
+        )
+    
+        # Resets the device.
+        self._perform_synchronous_reset(dut = dut)
+
+        # Starts the engine.
+        self._start_engine(dut = dut)
+
+        # Loads the golden reference dataset.
+        
+    
+        
+
+#* ======= Cocotb Test Entry Points =======
 #? @cocotb.test(): Function decorator, registers an 'async def' function
 #   as an official executable test case in the verification suite.
 @cocotb.test()
@@ -288,6 +328,27 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
         addr_fault_injection = 0x18,
     )
 
-    tester = EngineTester(config_engine_tester=config)
+    tester = EngineTester(config_engine_tester = config)
     
-    await tester.run_smoke_test(dut)
+    await tester.run_smoke_test(dut = dut)
+
+@cocotb.test()
+async def test_engine_golden_reference(dut: SimHandleBase) -> None:
+
+    config = ConfigEngineTester(
+        addr_control = 0x00,
+        addr_status = 0x04,
+        addr_fuel_flow_command = 0x08,
+        addr_speed = 0x0C,
+        addr_pressure = 0x10,
+        addr_temperature = 0x14,
+        addr_fault_injection = 0x18,
+    )
+    
+    tester = EngineTester(config_engine_tester=config)
+
+    await tester.run_golden_reference_verification_test(dut = dut)
+
+    
+
+

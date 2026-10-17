@@ -40,30 +40,27 @@ module calculate_next_steps #(
 
     //* ======= Wires. =======
     // ------- Rotational Speed. -------
-    wire signed [TOTAL_BIT_WIDTH-1:0] shifted_d_rotational_speed = d_rotational_speed >>> FRACTIONAL_BIT_WIDTH;
-    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_rotational_speed = current_rotational_speed + shifted_d_rotational_speed;
+    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_rotational_speed = current_rotational_speed + d_rotational_speed;
 
     // Positive Overflow Detection.
-    wire is_pos_overflow_detected_rotational_speed = (~current_rotational_speed[TOTAL_BIT_WIDTH-1] & ~shifted_d_rotational_speed[TOTAL_BIT_WIDTH-1] & calculated_rotational_speed[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
+    wire is_pos_overflow_detected_rotational_speed = (~current_rotational_speed[TOTAL_BIT_WIDTH-1] & ~d_rotational_speed[TOTAL_BIT_WIDTH-1] & calculated_rotational_speed[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
     wire signed [TOTAL_BIT_WIDTH-1:0] pos_saturated_rotational_speed = is_pos_overflow_detected_rotational_speed ? MAX_ROTATIONAL_SPEED : calculated_rotational_speed;
 
     // Negative Overflow Detection.    
     assign next_rotational_speed = (pos_saturated_rotational_speed[TOTAL_BIT_WIDTH-1]) ? 0 : pos_saturated_rotational_speed;
 
     // ------- Compressor Pressure. -------
-    wire signed [TOTAL_BIT_WIDTH-1:0] shifted_d_compressor_pressure = d_compressor_pressure >>> FRACTIONAL_BIT_WIDTH;
-    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_compressor_pressure = current_compressor_pressure + shifted_d_compressor_pressure;
+    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_compressor_pressure = current_compressor_pressure + d_compressor_pressure;
 
-    wire is_pos_overflow_detected_compressor_pressure = (~current_compressor_pressure[TOTAL_BIT_WIDTH-1] & ~shifted_d_compressor_pressure[TOTAL_BIT_WIDTH-1] & calculated_compressor_pressure[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
+    wire is_pos_overflow_detected_compressor_pressure = (~current_compressor_pressure[TOTAL_BIT_WIDTH-1] & ~d_compressor_pressure[TOTAL_BIT_WIDTH-1] & calculated_compressor_pressure[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
     wire signed [TOTAL_BIT_WIDTH-1:0] pos_saturated_compressor_pressure = is_pos_overflow_detected_compressor_pressure ? MAX_COMPRESSOR_PRESSURE : calculated_compressor_pressure;
 
     assign next_compressor_pressure = (pos_saturated_compressor_pressure < AMBIENT_PRESSURE) ? AMBIENT_PRESSURE : pos_saturated_compressor_pressure;
 
     // ------- Exhaust Gas Temperature. -------
-    wire signed [TOTAL_BIT_WIDTH-1:0] shifted_d_exhaust_gas_temperature = d_exhaust_gas_temperature >>> FRACTIONAL_BIT_WIDTH;
-    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_exhaust_gas_temperature = current_exhaust_gas_temperature + shifted_d_exhaust_gas_temperature;
+    wire signed [TOTAL_BIT_WIDTH-1:0] calculated_exhaust_gas_temperature = current_exhaust_gas_temperature + d_exhaust_gas_temperature;
 
-    wire is_pos_overflow_detected_exhaust_gas_temperature = (~current_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1] & ~shifted_d_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1] & calculated_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
+    wire is_pos_overflow_detected_exhaust_gas_temperature = (~current_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1] & ~d_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1] & calculated_exhaust_gas_temperature[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
     wire signed [TOTAL_BIT_WIDTH-1:0] pos_saturated_exhaust_gas_temperature = is_pos_overflow_detected_exhaust_gas_temperature ? MAX_EXHAUST_GAS_TEMPERATURE : calculated_exhaust_gas_temperature;
 
     assign next_exhaust_gas_temperature = (pos_saturated_exhaust_gas_temperature < AMBIENT_TEMPERATURE) ? AMBIENT_TEMPERATURE : pos_saturated_exhaust_gas_temperature;

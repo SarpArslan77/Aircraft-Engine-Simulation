@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
     TOP_MODULE: str = "aircraft_engine_simulator_top"
 
-    VERILOG_FILES: List[Path] = [
+    VERILOG_SRC_FILE_PATHS: List[Path] = [
         MAIN_DIR_PATH / "clock_prescaler.v",
         MAIN_DIR_PATH / "calculate_target_values.v",
         MAIN_DIR_PATH / "calculate_derivatives.v",
@@ -302,14 +302,14 @@ if __name__ == "__main__":
 
     #? .build(): Translates Python configuration into exact command-line
     #   arguments required by target compiler.
-    #   - verilog_sources: List of paths to the source files.
+    #   - sources: List of paths to the source files.
     #   - hdl_toplevel: Name of the top-level module.
     #   - parameters: Dictionary mapping hdl parameters.
     #   - always: True: Forces a complete recompile every time.
     #             False: Checks file timestamps and skips recompiling if source haven't changed.
     # Compiles the verilog files.
     runner.build(
-        verilog_sources = VERILOG_FILES,
+        sources = VERILOG_SRC_FILE_PATHS,
         hdl_toplevel = TOP_MODULE,
         parameters = {
             "SYSTEM_CLK_FREQ": 10,
