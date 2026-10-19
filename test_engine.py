@@ -5,6 +5,10 @@
 # ------- Native. -------
 from dataclasses import dataclass
 
+import json
+
+from typing import Any
+
 # ------- Externals. -------
 #TODO AC
 #? cocotb (Coroutine-based Co-simulation Testbench environment):
@@ -29,6 +33,17 @@ from cocotb.triggers import (
 #? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
 #   reg or port inside the simulatrors netlist.
 from cocotb.handle import SimHandleBase
+
+import numpy as np
+from numpy import (
+    int64
+)
+from numpy.typing import NDArray
+
+from pathlib import Path
+
+import pandas as pd
+from pandas import DataFrame
 
 #* ======= Aircraft Engine Tester's Config Dataclass =======
 @dataclass(frozen = True)
@@ -59,6 +74,13 @@ class ConfigEngineTester:
     addr_temperature: int
     addr_fault_injection: int
 
+    # ------- Paths. -------
+    software_results_file_path_str: Path
+
+    # ------- Simulation. -------
+    simulation_step: float
+    total_simulation_time: float
+
 #* ======= Aircraft Engine Tester =======
 class EngineTester:
     def __init__(
@@ -74,7 +96,7 @@ class EngineTester:
                 memory-mapped address offsets.
         """
 
-        self.cfg: ConfigEngineTester = config_engine_tester
+        self._cfg: ConfigEngineTester = config_engine_tester
 
     #? async: Defines a coroutine function.
     async def _bus_write(
@@ -168,7 +190,7 @@ class EngineTester:
         # Reads the status register (0: engine healthy).
         status: int = await self._bus_read(
             dut = dut,
-            addr = self.cfg.addr_status
+            addr = self._cfg.addr_status
         )
         assert (status == 0), f"Expected status '0' after reset, got {status}"
         dut._log.info(msg = "Status register verified: 0 (Normal)")
@@ -180,7 +202,7 @@ class EngineTester:
         # Starts the engine.
         await self._bus_write(
             dut = dut,
-            addr = self.cfg.addr_control,
+            addr = self._cfg.addr_control,
             data = 1
         )
         dut._log.info(msg = f"Engine start commanded!")
@@ -222,20 +244,20 @@ class EngineTester:
         )
 
         # Resets the device.
-        self._perform_synchronous_reset(dut = dut)
+        await self._perform_synchronous_reset(dut = dut)
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
         fuel_command_q16: int = 10 << 16 #TODO FTH
         await self._bus_write(
             dut = dut,
-            addr = self.cfg.addr_fuel_flow_command,
+            addr = self._cfg.addr_fuel_flow_command,
             data = fuel_command_q16
         )
 
         # Reads it back to verify, that the register stored it.
         read_fuel_value: int = await self._bus_read(
             dut = dut,
-            addr = self.cfg.addr_fuel_flow_command
+            addr = self._cfg.addr_fuel_flow_command
         )
         assert (read_fuel_value == fuel_command_q16), f"Fuel mismatch! Wrote {fuel_command_q16}, got {read_fuel_value}"
         dut._log.info(msg = f"Fuel command register verified: {read_fuel_value >> 16} kg/h")
@@ -243,7 +265,7 @@ class EngineTester:
         # Starts the engine (a.k.a. sets the bit '0' in control register).
         await self._bus_write(
             dut = dut,
-            addr = self.cfg.addr_control,
+            addr = self._cfg.addr_control,
             data = 1
         )
         dut._log.info(msg = f"Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
@@ -257,15 +279,15 @@ class EngineTester:
         # Reads the data back over the bus.
         read_speed_value: int = await self._bus_read(
             dut = dut,
-            addr = self.cfg.addr_speed
+            addr = self._cfg.addr_speed
         )
         read_pressure_value: int = await self._bus_read(
             dut = dut,
-            addr = self.cfg.addr_pressure
+            addr = self._cfg.addr_pressure
         )
         read_temperature_value: int = await self._bus_read(
             dut = dut,
-            addr = self.cfg.addr_temperature
+            addr = self._cfg.addr_temperature
         )
 
         # Scales back the read-values to normal intervalls.
@@ -289,16 +311,66 @@ class EngineTester:
         )
     
         # Resets the device.
-        self._perform_synchronous_reset(dut = dut)
+        await self._perform_synchronous_reset(dut = dut)
 
         # Starts the engine.
-        self._start_engine(dut = dut)
+        await self._start_engine(dut = dut)
 
         # Loads the golden reference dataset.
-        
-    
-        
+        software_results_df: DataFrame = pd.read_csv(self._cfg.software_results_file_path_str)
 
+        fuel_flow_col: NDArray[int64] = software_results_df["fuel_flow"].values
+        speed_col: NDArray[int64]  = software_results_df["speed"].values
+        pressure_col: NDArray[int64]  = software_results_df["pressure"].values
+        temperature_col: NDArray[int64]  = software_results_df["temperature"].values
+        is_engine_broken_col: NDArray[int64]  = software_results_df["is_engine_broken"].values
+        time_col: NDArray[int64]  = software_results_df["time"].values
+
+        total_steps = int(
+            np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
+        )
+
+        for i in range(0, total_steps):
+            # Writes the fuel flow values for the current step.
+            await self._bus_write(
+                dut = dut,
+                addr = self._cfg.addr_fuel_flow_command,
+                data = fuel_flow_col[i]
+            )
+
+            # Advances clock cycles until domain clock pulses.
+            while True:
+                await RisingEdge(dut.clk)
+                if (dut.clk_en_1ms.value == 1): break
+
+            # Reads the hardware registers.
+            hardware_speed_result: int64 = await self._bus_read(
+                dut = dut,
+                addr = self._cfg.addr_speed
+            )
+            hardware_pressure_result: int64 = await self._bus_read(
+                dut = dut,
+                addr = self._cfg.addr_pressure
+            )
+            hardware_temperature_result: int64 = await self._bus_read(
+                dut = dut,
+                addr = self._cfg.addr_temperature
+            )
+            hardware_is_engine_broken_result: int64 = await self._bus_read(
+                dut = dut,
+                addr = self._cfg.addr_status
+            )
+
+            # Compares the results.
+            if (abs(hardware_speed_result - speed_col[i+1]) >= 2):
+                print(f"speed: {hardware_speed_result} vs. {speed_col[i+1]}")
+            if (abs(hardware_pressure_result - pressure_col[i+1]) >= 2):
+                print(f"pressure: {hardware_pressure_result} vs. {pressure_col[i+1]}")
+            if (abs(hardware_temperature_result - temperature_col[i+1]) >= 2):
+                print(f"temperature: {hardware_temperature_result} vs. {temperature_col[i+1]}")
+            if (hardware_is_engine_broken_result != is_engine_broken_col[i+1]):
+                print(f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i+1]}")
+            
 #* ======= Cocotb Test Entry Points =======
 #? @cocotb.test(): Function decorator, registers an 'async def' function
 #   as an official executable test case in the verification suite.
@@ -317,35 +389,69 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     Returns:
         None
     """
+    # Imports the JSON file.
+    with open(
+        file = "config.json", #TODO FH
+        mode = "r",
+        encoding = "utf-8"
+    ) as f:
+        config: dict[str, dict[str, Any]] = json.load(f)
+
+    # Extracts the current files parameters from the JSON file.
+    #? .stem: Retrieves the active file names, without the extension.
+    active_file_name: str = Path(__file__).stem
+    active_file_config: dict = config[active_file_name]
     
-    config = ConfigEngineTester(
-        addr_control = 0x00,
-        addr_status = 0x04,
-        addr_fuel_flow_command = 0x08,
-        addr_speed = 0x0C,
-        addr_pressure = 0x10,
-        addr_temperature = 0x14,
-        addr_fault_injection = 0x18,
+    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
+        addr_control = active_file_config["addr_control"],
+        addr_status = active_file_config["addr_status"],
+        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
+        addr_speed = active_file_config["addr_speed"],
+        addr_pressure = active_file_config["addr_pressure"],
+        addr_temperature = active_file_config["addr_temperature"],
+        addr_fault_injection = active_file_config["addr_fault_injection"],
+
+        software_results_file_path_str = active_file_config["software_results_file_path_str"],
+
+        simulation_step = active_file_config["simulation_step"],
+        total_simulation_time = active_file_config["total_simulation_time"]
     )
 
-    tester = EngineTester(config_engine_tester = config)
+    tester = EngineTester(config_engine_tester = config_engine_tester)
     
     await tester.run_smoke_test(dut = dut)
 
 @cocotb.test()
 async def test_engine_golden_reference(dut: SimHandleBase) -> None:
-
-    config = ConfigEngineTester(
-        addr_control = 0x00,
-        addr_status = 0x04,
-        addr_fuel_flow_command = 0x08,
-        addr_speed = 0x0C,
-        addr_pressure = 0x10,
-        addr_temperature = 0x14,
-        addr_fault_injection = 0x18,
+    # Imports the JSON file.
+    with open(
+        file = "config.json", 
+        mode = "r",
+        encoding = "utf-8"
+    ) as f:
+        config: dict[str, dict[str, Any]] = json.load(f)
+    
+    # Extracts the current files parameters from the JSON file.
+    #? .stem: Retrieves the active file names, without the extension.
+    active_file_name: str = Path(__file__).stem
+    active_file_config: dict = config[active_file_name]
+    
+    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
+        addr_control = active_file_config["addr_control"],
+        addr_status = active_file_config["addr_status"],
+        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
+        addr_speed = active_file_config["addr_speed"],
+        addr_pressure = active_file_config["addr_pressure"],
+        addr_temperature = active_file_config["addr_temperature"],
+        addr_fault_injection = active_file_config["addr_fault_injection"],
+    
+        software_results_file_path_str = active_file_config["software_results_file_path_str"],
+    
+        simulation_step = active_file_config["simulation_step"],
+        total_simulation_time = active_file_config["total_simulation_time"]
     )
     
-    tester = EngineTester(config_engine_tester=config)
+    tester = EngineTester(config_engine_tester = config_engine_tester)
 
     await tester.run_golden_reference_verification_test(dut = dut)
 

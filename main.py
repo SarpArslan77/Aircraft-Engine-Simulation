@@ -3,6 +3,7 @@
 
 #* ======= Libraries =======
 # ------- Native. -------
+import json
 import os
 from pathlib import Path
 from typing import List
@@ -13,8 +14,11 @@ from cocotb_tools.runner import (
     get_runner, 
     Runner
 )
+
 from numpy import float64
 from numpy.typing import NDArray
+
+from typing import Any
 
 # ------- Customs. -------
 from aircraft_engine_simulator_floating import (
@@ -46,6 +50,12 @@ if __name__ == "__main__":
         os.environ["PATH"] = IVERILOG_BIN_DIR_PATH + os.pathsep + os.environ.get("PATH", "")
 
     # ------- Constants. -------
+    # Paths.
+    MAIN_DIR_PATH = Path(__file__).resolve().parent
+
+    SOFTWARE_RESULTS_FILE_NAME: str = "software_results"
+    SOFTWARE_RESULTS_FILE_PATH: Path = MAIN_DIR_PATH / f"{SOFTWARE_RESULTS_FILE_NAME}.csv"
+
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
     INT_BIT_WIDTH: int = 16
@@ -86,8 +96,6 @@ if __name__ == "__main__":
     MAX_COMPRESSOR_TEMPERATURE_QUANTIZED: int = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
 
     # Hardware Simulation.
-    MAIN_DIR_PATH = Path(__file__).resolve().parent
-
     TOP_MODULE: str = "aircraft_engine_simulator_top"
 
     VERILOG_SRC_FILE_PATHS: List[Path] = [
@@ -98,6 +106,36 @@ if __name__ == "__main__":
         MAIN_DIR_PATH / "register_interface.v",
         MAIN_DIR_PATH / f"{TOP_MODULE}.v"
     ]
+
+    # Exports a JSON File, which containts parameters for other files.
+    config: dict[str, dict[str, Any]] = {
+        "test_engine" : {
+            "addr_control": 0x00,
+            "addr_status": 0x04,
+            "addr_fuel_flow_command": 0x08,
+            "addr_speed": 0x0C,
+            "addr_pressure": 0x10,
+            "addr_temperature": 0x14,
+            "addr_fault_injection": 0x18,
+
+            "software_results_file_path_str": str(SOFTWARE_RESULTS_FILE_PATH),
+
+            "simulation_step": SIMULATION_STEP,
+            "total_simulation_time": TOTAL_SIMULATION_TIME
+        }
+    }
+
+    with open( 
+        file = "config.json",
+        mode = "w",
+        encoding = "utf-8"
+    ) as f:
+        #TODO AC.
+        json.dump(
+            config, 
+            f, 
+            indent = 4
+        )
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
@@ -149,7 +187,7 @@ if __name__ == "__main__":
         max_rotational_speed_quantized = MAX_ROTATIONAL_SPEED_QUANTIZED,
         max_compressor_temperature_quantized = MAX_COMPRESSOR_TEMPERATURE_QUANTIZED,
 
-        software_results_file_path = MAIN_DIR_PATH
+        software_results_file_path = SOFTWARE_RESULTS_FILE_PATH
     )
     
     aircraft_engine_simulator_fixed_point = AircraftEngineSimulatorFixedPoint(

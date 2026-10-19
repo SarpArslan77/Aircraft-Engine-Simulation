@@ -328,11 +328,9 @@ class AircraftEngineSimulatorFixedPoint:
             }
         )
 
-        software_results_file_name: Path = self._cfg.software_results_file_path / "software_results.csv"
-
         # Exports the dataframe as a csv file.
         df.to_csv(
-            software_results_file_name,
+            self._cfg.software_results_file_path,
             index = False
         )
 

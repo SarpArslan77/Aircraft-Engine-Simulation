@@ -109,7 +109,7 @@ class AircraftEngineSimulatorFloating:
                 The configuration dataclass holding the continuous system attributes,
                 environmental constants, limits, and step parameters.
         """
-        self.cfg: ConfigAircraftEngineSimulatorFloating = config_aircraft_engine_simulator_floating
+        self._cfg: ConfigAircraftEngineSimulatorFloating = config_aircraft_engine_simulator_floating
         
     def _fetch_current_fuel_flow(
             self,
@@ -146,9 +146,9 @@ class AircraftEngineSimulatorFloating:
         # Throttle chop / deceleration.
         elif (k == 18.0):
             fuel_flow = 10.0
-        elif (18.0 < k < self.cfg.total_simulation_time):
+        elif (18.0 < k < self._cfg.total_simulation_time):
             fuel_flow = 10.0
-        elif (k == self.cfg.total_simulation_time):
+        elif (k == self._cfg.total_simulation_time):
             fuel_flow = 10.0
 
         return fuel_flow
@@ -194,10 +194,10 @@ class AircraftEngineSimulatorFloating:
         target_rotational_speed: float = speed_gain_coefficient * current_fuel_flow
 
         # Compressor Pressure.
-        target_compressor_pressure: float = self.cfg.ambient_pressure + (compressor_pressure_gain * (current_speed)**2)
+        target_compressor_pressure: float = self._cfg.ambient_pressure + (compressor_pressure_gain * (current_speed)**2)
 
         # Exhaust Gas Temperature.
-        target_exhaust_gas_temperature: float = self.cfg.ambient_temperature + (combustion_heat_gain * current_fuel_flow) - (mass_overflow_cooling_gain * current_speed)
+        target_exhaust_gas_temperature: float = self._cfg.ambient_temperature + (combustion_heat_gain * current_fuel_flow) - (mass_overflow_cooling_gain * current_speed)
 
         return (target_rotational_speed, target_compressor_pressure, target_exhaust_gas_temperature)
 
@@ -240,13 +240,13 @@ class AircraftEngineSimulatorFloating:
 
         # ------- Calculates the derivatives. -------
         # Rotational Speed.
-        d_rotational_speed: float = 1 / (self.cfg.rotor_inertial_time_const) * (target_rotational_speed - current_rotational_speed)
+        d_rotational_speed: float = 1 / (self._cfg.rotor_inertial_time_const) * (target_rotational_speed - current_rotational_speed)
 
         # Compressor Pressure.
-        d_compressor_pressure: float = 1 / (self.cfg.pressure_volume_time_const) * (target_compressor_pressure - current_compressor_pressure)
+        d_compressor_pressure: float = 1 / (self._cfg.pressure_volume_time_const) * (target_compressor_pressure - current_compressor_pressure)
 
         # Exhaust Gas Temperature.
-        d_exhaust_gas_temperature: float = 1 / (self.cfg.thermal_time_const) * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
+        d_exhaust_gas_temperature: float = 1 / (self._cfg.thermal_time_const) * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
 
         return (d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature)
 
@@ -287,11 +287,11 @@ class AircraftEngineSimulatorFloating:
         d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature = derivative_values
 
         # Uses the Euler equation to compute the values for the next step.
-        next_rotational_speed: float = current_rotational_speed + (d_rotational_speed * self.cfg.simulation_step)
+        next_rotational_speed: float = current_rotational_speed + (d_rotational_speed * self._cfg.simulation_step)
 
-        next_compressor_pressure: float = current_compressor_pressure + (d_compressor_pressure * self.cfg.simulation_step)
+        next_compressor_pressure: float = current_compressor_pressure + (d_compressor_pressure * self._cfg.simulation_step)
 
-        next_exhaust_gas_temperature: float = current_exhaust_gas_temperature + (d_exhaust_gas_temperature * self.cfg.simulation_step)
+        next_exhaust_gas_temperature: float = current_exhaust_gas_temperature + (d_exhaust_gas_temperature * self._cfg.simulation_step)
 
         return (next_rotational_speed, next_compressor_pressure, next_exhaust_gas_temperature)
 
@@ -340,13 +340,13 @@ class AircraftEngineSimulatorFloating:
 
         # Calculates the total number of iterations needed.
         total_steps = int(
-            np.ceil(self.cfg.total_simulation_time / self.cfg.simulation_step)
+            np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
         )
 
         # Populates the time history as it is deterministic.
         time_history: NDArray[float64] = np.linspace(
             start = 0.0,
-            stop = self.cfg.total_simulation_time,
+            stop = self._cfg.total_simulation_time,
             num = total_steps + 1
         )
 
@@ -378,14 +378,14 @@ class AircraftEngineSimulatorFloating:
         is_engine_broken: bool = False
 
         # Defines local variables for the gains, so they can be modified if the engine breaks.
-        speed_gain_coeff: float = self.cfg.speed_gain_coeff
-        compressor_pressure_gain: float = self.cfg.compressor_pressure_gain
-        combustion_heat_gain: float = self.cfg.combustion_heat_gain
-        mass_overflow_cooling_gain: float = self.cfg.mass_overflow_cooling_gain
+        speed_gain_coeff: float = self._cfg.speed_gain_coeff
+        compressor_pressure_gain: float = self._cfg.compressor_pressure_gain
+        combustion_heat_gain: float = self._cfg.combustion_heat_gain
+        mass_overflow_cooling_gain: float = self._cfg.mass_overflow_cooling_gain
 
         for i in range(0, total_steps):
             # Calculates the current physical simulation time.
-            k: float = i * self.cfg.simulation_step
+            k: float = i * self._cfg.simulation_step
 
             # Modifies the system behaviour, IF engine is broken.
             if is_engine_broken:
@@ -434,15 +434,15 @@ class AircraftEngineSimulatorFloating:
             if (next_speed < 0.0):
                 next_speed = 0.0
 
-            if (next_pressure < self.cfg.ambient_pressure):
-                next_pressure = self.cfg.ambient_pressure
+            if (next_pressure < self._cfg.ambient_pressure):
+                next_pressure = self._cfg.ambient_pressure
 
-            if (next_temperature < self.cfg.ambient_temperature):
-                next_temperature = self.cfg.ambient_temperature
+            if (next_temperature < self._cfg.ambient_temperature):
+                next_temperature = self._cfg.ambient_temperature
 
             # Monitors for maximum limit breaches.
-            if (current_speed > self.cfg.max_rotational_speed) or \
-                (current_temperature > self.cfg.max_compressor_temperature):
+            if (current_speed > self._cfg.max_rotational_speed) or \
+                (current_temperature > self._cfg.max_compressor_temperature):
                 is_engine_broken = True
 
             speed_history[i+1] = next_speed
@@ -450,7 +450,7 @@ class AircraftEngineSimulatorFloating:
             temperature_history[i+1] = next_temperature
 
         # Adds the last state of fuel flow to the history.
-        last_fuel_flow: float = self._fetch_current_fuel_flow(k = (total_steps * self.cfg.simulation_step))
+        last_fuel_flow: float = self._fetch_current_fuel_flow(k = (total_steps * self._cfg.simulation_step))
 
         fuel_flow_history[total_steps] = last_fuel_flow
 
