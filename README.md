@@ -1,5 +1,7 @@
 # Real-Time Jet Engine Simulator on FPGA (Hardware-in-the-Loop Emulation)
 
+![CI Status](https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/workflows/ci.yml/badge.svg)
+
 This project implements a synthesizable, real-time mathematical model of a single-spool turbojet engine designed for **Hardware-in-the-Loop (HIL) emulation** (*Echtzeitsimulation*) on an FPGA. By solving thermodynamic and mechanical differential equations directly in hardware at discrete time steps ($dt = 1\text{ ms}$), the simulator acts as an exact digital twin to verify Engine Control Units (ECUs) without physical engine test cells.
 
 The engine dynamics track key physical states—**Rotational Speed ($N$)**, **Compressor Outlet Pressure ($P$)**, and **Exhaust Gas Temperature ($EGT$)**—driven by the control input **Fuel Flow ($W_f$)**.
