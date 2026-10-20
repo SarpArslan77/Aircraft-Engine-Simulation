@@ -233,13 +233,18 @@ class AircraftEngineSimulatorFixedPoint:
         target_rotational_speed, target_compressor_pressure, target_exhaust_gas_temperature = target_values
         # ------- Calculates the derivatives. -------
         # Rotational Speed.
-        d_rotational_speed: int = self._cfg.pre_calculated_rotor_inertial_time_const_quantized * (target_rotational_speed - current_rotational_speed)
+        d_rotational_speed_32b: int = self._cfg.pre_calculated_rotor_inertial_time_const_quantized * (target_rotational_speed - current_rotational_speed)
 
         # Compressor Pressure.
-        d_compressor_pressure: int = self._cfg.pre_calculated_pressure_volume_time_const_quantized * (target_compressor_pressure - current_compressor_pressure)
+        d_compressor_pressure_32b: int = self._cfg.pre_calculated_pressure_volume_time_const_quantized * (target_compressor_pressure - current_compressor_pressure)
 
         # Exhaust Gas Temperature.
-        d_exhaust_gas_temperature: int = self._cfg.pre_calculated_thermal_time_const_quantized * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
+        d_exhaust_gas_temperature_32b: int = self._cfg.pre_calculated_thermal_time_const_quantized * (target_exhaust_gas_temperature - current_exhaust_gas_temperature)
+
+        # Shifts the derivativers.
+        d_rotational_speed: int = d_rotational_speed_32b >> self._cfg.fractional_bit_width
+        d_compressor_pressure: int = d_compressor_pressure_32b >> self._cfg.fractional_bit_width
+        d_exhaust_gas_temperature: int = d_exhaust_gas_temperature_32b >> self._cfg.fractional_bit_width
 
         return (d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature)
 
@@ -254,11 +259,11 @@ class AircraftEngineSimulatorFixedPoint:
 
         Mathematical Equations (Euler Integration):
         1) Next Rotational Speed:
-           N[k+1] = N[k] + (d_N >> f_width)
+           N[k+1] = N[k] + d_N
         2) Next Compressor Pressure:
-           P[k+1] = P[k] + (d_P >> f_width)
+           P[k+1] = P[k] + d_P
         3) Next Exhaust Gas Temperature:
-           T[k+1] = T[k] + (d_T >> f_width)
+           T[k+1] = T[k] + d_T
 
         Args:
             current_values (quantized_values_type): A tuple containing:
@@ -280,14 +285,12 @@ class AircraftEngineSimulatorFixedPoint:
         current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature = current_values
         d_rotational_speed, d_compressor_pressure, d_exhaust_gas_temperature = derivative_values
 
-        f_bit: int = self._cfg.fractional_bit_width
-
         # Uses the Euler equation to compute the values for the next step.
-        next_rotational_speed: int = current_rotational_speed + (d_rotational_speed >> f_bit)
+        next_rotational_speed: int = current_rotational_speed + d_rotational_speed
 
-        next_compressor_pressure: int = current_compressor_pressure + (d_compressor_pressure >> f_bit)
+        next_compressor_pressure: int = current_compressor_pressure + d_compressor_pressure
 
-        next_exhaust_gas_temperature: int = current_exhaust_gas_temperature + (d_exhaust_gas_temperature >> f_bit)
+        next_exhaust_gas_temperature: int = current_exhaust_gas_temperature + d_exhaust_gas_temperature
 
         return (next_rotational_speed, next_compressor_pressure, next_exhaust_gas_temperature)
 
