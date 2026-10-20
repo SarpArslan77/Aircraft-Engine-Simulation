@@ -1,0 +1,88 @@
+
+#? .yml: YAML Ain't Markup Language, standard text format used to store data
+#   and configuration settings.
+# -> 'Indentation defines hierarchy': Sub-sections are indented under their 
+#       parents (use spaces, never the Tab key).
+# -> Key-Value pairs: Written as 'key: value'
+# -> Lists / Arrays: Written with a dash and a space '- item'.
+# -> The Pipe '|' Symbol: Tells YAML: 'THe following lines are multi-line raw
+#       text/bash script, preserve all line breaks.'
+
+#? name: Sets the display name of the workflow.
+name: RTL & Python Simulation CI
+
+#? on: Defines the triggers (events) that cause the script to run.
+# Triggers whenever it is pushed or created a pull request to 'main' branch.
+on:
+    push:
+        branches: ["main"]
+    pull_request:
+        branches: ["main"]
+
+#? jobs: Workflow containing multiple jobs.
+jobs:
+    run-simulation:
+        name: Run Engine Simulation & Cocotb Tests
+        #? runs-on: Instructs GitHub to allocate a VM running specified OS.
+        runs-on: ubuntu-latest
+
+        #? env: Sets system environment variables for this job.
+        env:
+            #? MPLBACKEND: Agg -> Forces Matplotlib to render plots silently.
+            MPLBACKEND: Agg
+
+        #? steps: Executes orders from top to bottom.
+        steps:
+            # Pulls repo code onto the runner.
+            - name: Checkout Repository
+              #? actions/checkout@v4: GitHub utility, performs 'git clone'
+              #     of the repo onto VM.
+              uses: actions/checkout@v4
+            
+            # Installs Icarus Verilog simulator via apt. 
+            - name: Install Icarus Verilog (iverilog)
+              #? run: | -> Runs Bash shell commands in terminal.
+              run: |
+                #? apt: Ubuntu's package manager.
+                sudo apt-get update
+                sudo apt-get install -y iverilog
+
+            # Verifies simulator is installed.
+            - name: Check iverilog Version
+              run: iverilog -v
+
+            # Sets up the Python environment.
+            - name: Set up Python
+              #? actions|setup-python@v5: GitHub tool, provisions Python.
+              uses: actions/setup-python@v5
+              with:
+                python-version: "3.11"
+                #? cache: "pip" -> Memorizes downloaded Python wheels.
+                cache: "pip"
+            
+            # Installs the project dependencies.
+            - name: Install Python Dependencies
+              run: |
+                #? -f file.py: Shell-checks, if 'file.py' exists.
+                python -m pip install --upgrade pip
+                if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            
+            # Executes the verication pipeline.
+            - name: Run Main Simulation & Cocotb Verification
+              run: |
+                python main.py
+            
+            # Archives simulation artifacts (results csv & sim logs).
+            - name: Upload Test Artifacts
+              #? if: always(): Doesnt skip this step, even if the tests fail.
+              if: always()
+              #? actions/upload-artifact@v4: Zips up files generated during the run
+              #     and attaches them to the GitHub web page.
+              uses: actions/upload-artifact@v4
+              with:
+                name: simulation-results
+                #? path: Specifies which folders to zip.
+                path: |
+                    software_results.csv
+                    sim_build/
+                if-no-files-found: ignore
