@@ -350,7 +350,7 @@ if __name__ == "__main__":
         sources = VERILOG_SRC_FILE_PATHS,
         hdl_toplevel = TOP_MODULE,
         parameters = {
-            "SYSTEM_CLK_FREQ": 10,
+            "SYSTEM_CLK_FREQ": 25,
             "TARGET_CLK_FREQ": 1,
 
             "INTEGER_BIT_WIDTH": INT_BIT_WIDTH,
