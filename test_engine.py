@@ -207,10 +207,15 @@ class EngineTester:
         )
         dut._log.info(msg = f"Engine start commanded!")
 
+        # Waits for 1 tick so the hardware officially enters running state.
+        while True:
+            await RisingEdge(dut.clk)
+            if (dut.clk_en_1ms.value == 1): break
+
     # ------- The Smoke Test. -------
     async def run_smoke_test(
-        self,
-        dut: SimHandleBase
+            self,
+            dut: SimHandleBase
     ) -> None:
         """
         Executes an end-to-end basic functional sanity and smoke test sequence on the RTL engine.
@@ -247,11 +252,11 @@ class EngineTester:
         await self._perform_synchronous_reset(dut = dut)
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
-        fuel_command_q16: int = 10 << 16 #TODO FTH
+        fuel_command_b16: int = 10 << 16 #TODO FTH
         await self._bus_write(
             dut = dut,
             addr = self._cfg.addr_fuel_flow_command,
-            data = fuel_command_q16
+            data = fuel_command_b16
         )
 
         # Reads it back to verify, that the register stored it.
@@ -259,7 +264,7 @@ class EngineTester:
             dut = dut,
             addr = self._cfg.addr_fuel_flow_command
         )
-        assert (read_fuel_value == fuel_command_q16), f"Fuel mismatch! Wrote {fuel_command_q16}, got {read_fuel_value}"
+        assert (read_fuel_value == fuel_command_b16), f"Fuel mismatch! Wrote {fuel_command_b16}, got {read_fuel_value}"
         dut._log.info(msg = f"Fuel command register verified: {read_fuel_value >> 16} kg/h")
 
         # Starts the engine (a.k.a. sets the bit '0' in control register).
@@ -271,10 +276,8 @@ class EngineTester:
         dut._log.info(msg = f"Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
 
         # Waits for Euoler integration cycles.
-        await ClockCycles(
-            signal = dut.clk,
-            num_cycles = 50 
-        )
+        for _ in range(50):
+            await RisingEdge(dut.clk_en_1ms)
 
         # Reads the data back over the bus.
         read_speed_value: int = await self._bus_read(
@@ -324,7 +327,6 @@ class EngineTester:
         pressure_col: NDArray[int64]  = software_results_df["pressure"].values
         temperature_col: NDArray[int64]  = software_results_df["temperature"].values
         is_engine_broken_col: NDArray[int64]  = software_results_df["is_engine_broken"].values
-        time_col: NDArray[int64]  = software_results_df["time"].values
 
         total_steps = int(
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
@@ -335,7 +337,7 @@ class EngineTester:
             await self._bus_write(
                 dut = dut,
                 addr = self._cfg.addr_fuel_flow_command,
-                data = fuel_flow_col[i]
+                data = int(fuel_flow_col[i])
             )
 
             # Advances clock cycles until domain clock pulses.
@@ -362,15 +364,78 @@ class EngineTester:
             )
 
             # Compares the results.
-            if (abs(hardware_speed_result - speed_col[i+1]) >= 2):
-                print(f"speed: {hardware_speed_result} vs. {speed_col[i+1]}")
-            if (abs(hardware_pressure_result - pressure_col[i+1]) >= 2):
-                print(f"pressure: {hardware_pressure_result} vs. {pressure_col[i+1]}")
-            if (abs(hardware_temperature_result - temperature_col[i+1]) >= 2):
-                print(f"temperature: {hardware_temperature_result} vs. {temperature_col[i+1]}")
-            if (hardware_is_engine_broken_result != is_engine_broken_col[i+1]):
-                print(f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i+1]}")
-            
+            if (abs(hardware_speed_result - speed_col[i]) >= 2):
+                print(f"speed: {hardware_speed_result} vs. {speed_col[i]}")
+            if (abs(hardware_pressure_result - pressure_col[i]) >= 2):
+                print(f"pressure: {hardware_pressure_result} vs. {pressure_col[i]}")
+            if (abs(hardware_temperature_result - temperature_col[i]) >= 2):
+                print(f"temperature: {hardware_temperature_result} vs. {temperature_col[i]}")
+            if (hardware_is_engine_broken_result != is_engine_broken_col[i]):
+                print(f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i]}")
+
+    async def run_compressor_stall_test(
+            self,
+            dut: SimHandleBase
+    ) -> None:
+        # Starts a 100 MhZ clock.
+        cocotb.start_soon(
+            Clock(dut.clk, 10, "ns").start()
+        )
+        
+        # Resets the device.
+        await self._perform_synchronous_reset(dut = dut)
+        
+        # Starts the engine.
+        await self._start_engine(dut = dut)
+
+        # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
+        fuel_command_q16: int = 10 << 16 #TODO FTH
+        await self._bus_write(
+            dut = dut,
+            addr = self._cfg.addr_fuel_flow_command,
+            data = fuel_command_q16
+        )
+        
+        # Reads it back to verify, that the register stored it.
+        read_fuel_value: int = await self._bus_read(
+            dut = dut,
+            addr = self._cfg.addr_fuel_flow_command
+        )
+        assert (read_fuel_value == fuel_command_q16), f"Fuel mismatch! Wrote {fuel_command_q16}, got {read_fuel_value}"
+        dut._log.info(msg = f"Fuel command register verified: {read_fuel_value >> 16} kg/h")
+
+        # Waits for Euoler integration cycles.
+        for _ in range(500): #TODO FTH
+            await RisingEdge(dut.clk_en_1ms)
+
+        # Injects the fault.
+        await self._bus_write(
+            dut = dut,
+            addr = self._cfg.addr_fault_injection,
+            data = 1
+        )
+
+        
+
+#* ======= Helper Functions =======
+# ------- JSON Loader. -------
+def load_config() -> dict[str, Any]:
+    # Imports the JSON file.
+    #? When Cocotb executes the tests through the runner, it switches the
+    #   current working directory to the simulators output folder 'sim_build'.
+    #   --> Absolute path has to be passed and not just json file name.
+    MAIN_DIR_PATH: Path = Path(__file__).resolve().parent
+    JSON_FILE_PATH: Path = MAIN_DIR_PATH / "config.json" #TODO FH
+    
+    with open(
+        file = JSON_FILE_PATH, 
+        mode = "r",
+        encoding = "utf-8"
+    ) as f:
+        config: dict[str, dict[str, Any]] = json.load(f)
+
+    return config
+
 #* ======= Cocotb Test Entry Points =======
 #? @cocotb.test(): Function decorator, registers an 'async def' function
 #   as an official executable test case in the verification suite.
@@ -389,13 +454,8 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     Returns:
         None
     """
-    # Imports the JSON file.
-    with open(
-        file = "config.json", #TODO FH
-        mode = "r",
-        encoding = "utf-8"
-    ) as f:
-        config: dict[str, dict[str, Any]] = json.load(f)
+    # Loads the config file.
+    config: dict[str, Any] = load_config()
 
     # Extracts the current files parameters from the JSON file.
     #? .stem: Retrieves the active file names, without the extension.
@@ -423,13 +483,8 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
 
 @cocotb.test()
 async def test_engine_golden_reference(dut: SimHandleBase) -> None:
-    # Imports the JSON file.
-    with open(
-        file = "config.json", 
-        mode = "r",
-        encoding = "utf-8"
-    ) as f:
-        config: dict[str, dict[str, Any]] = json.load(f)
+    # Loads the config file.
+    config: dict[str, Any] = load_config()
     
     # Extracts the current files parameters from the JSON file.
     #? .stem: Retrieves the active file names, without the extension.
@@ -454,7 +509,3 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     tester = EngineTester(config_engine_tester = config_engine_tester)
 
     await tester.run_golden_reference_verification_test(dut = dut)
-
-    
-
-
