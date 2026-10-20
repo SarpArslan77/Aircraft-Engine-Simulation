@@ -21,6 +21,12 @@ class SoftwareVerifier:
             self,
             error: NDArray
     ) -> float:
+        return float(np.mean(np.abs(error)))
+
+    def _calculate_max_error(
+            self,
+            error: NDArray
+    ) -> float:
         return float(np.max(np.abs(error)))
 
     def _calculate_mse_and_rmse(
@@ -61,10 +67,13 @@ class SoftwareVerifier:
             original_signal: NDArray,
             error: NDArray,
             state_name: str
-    ) -> tuple[float, float, float, float]:
+    ) -> None:
         # Calculates different metrics and logs them.
         # Mean Absolute Error (MAE).
         mae: float = self._calculate_mae(error = error)
+
+        # Max Error (ME).
+        me: float = self._calculate_max_error(error = error)
 
         # Mean Squared Error (MSE) & Root-Mean Squared Error (RMSE).
         mse, rmse = self._calculate_mse_and_rmse(error = error)
@@ -76,6 +85,4 @@ class SoftwareVerifier:
         )
 
         print(f" --> State: {state_name} <-- ")
-        print(f"MAE: {mae:4f} | MSE: {mse:4f} , RMSE: {rmse:4f} | sqnr: {sqnr:4f} dB")
-
-        return (mae, mse, rmse, sqnr)
+        print(f"MAE: {mae:4f} | ME: {me:4f} | MSE: {mse:4f} , RMSE: {rmse:4f} | sqnr: {sqnr:4f} dB")
