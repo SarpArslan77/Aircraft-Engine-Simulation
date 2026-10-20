@@ -6,6 +6,8 @@
 import json
 import os
 from pathlib import Path
+#? platform: Retrieves information about the computer and operating system.
+import platform
 from typing import List
 
 # ------- Externals. -------
@@ -42,12 +44,20 @@ from verify_software import SoftwareVerifier
 #* ======= Main Loop =======
 if __name__ == "__main__":
     # ------- Configurations. -------
-    # Forces Python and Cocotb to see iverilog directly.
-    #TODO FTH
-    IVERILOG_BIN_DIR_PATH: str = r"C:\iverilog\bin"
-    #TODO AC
-    if IVERILOG_BIN_DIR_PATH not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = IVERILOG_BIN_DIR_PATH + os.pathsep + os.environ.get("PATH", "")
+    #? platform.system(): Returns the OS.
+    # Prepends iverilog, if running locally on Windows.
+    if (platform.system() == "Windows"):
+        #TODO FTH
+        IVERILOG_BIN_DIR_PATH: str = r"C:\iverilog\bin"
+        #? "PATH": OSvariable containing list of folders, where
+        #   executable programs live
+        #? os.environ: Dictionary containing all current system environment variables.
+        if (
+            (os.path.exists(IVERILOG_BIN_DIR_PATH)) and
+            (IVERILOG_BIN_DIR_PATH not in os.environ.get("PATH", ""))
+        ):
+            #? os.pathsep: Gives back the correct seperator for the active OS.
+            os.environ["PATH"] = IVERILOG_BIN_DIR_PATH + os.pathsep + os.environ.get("PATH", "")
 
     # ------- Constants. -------
     # Paths.
