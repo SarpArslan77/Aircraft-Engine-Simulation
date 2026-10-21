@@ -49,7 +49,7 @@ jobs:
 
             # Verifies simulator is installed.
             - name: Check iverilog Version
-              run: iverilog -v
+              run: iverilog -V
 
             # Sets up the Python environment.
             - name: Set up Python
