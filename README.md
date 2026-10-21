@@ -101,6 +101,23 @@ The simulator exposes a standard 32-bit bus interface:
 
 ---
 
+## FPGA Implementation & Synthesis Benchmarks
+
+<!-- SYNTH_TABLE_START -->
+| Metric / Hardware Resource | Used | Available (Artix-7 xc7a35t) | Utilization [%] |
+| :--- | :--- | :--- | :--- |
+| **Slice LUTs (Logic)** | 96 | 20,800 | 0.00 % |
+| **Slice Registers (Flip-Flops)** | 180 | 41,600 | 0.00 % |
+| **DSP48E1 Slices** | 0 | 90 | 0.00 % |
+| **Target Clock ($F_{	ext{target}}$)** | 100.00 MHz (10.0 ns) | - | - |
+| **Achieved Clock ($F_{	ext{max}}$)** | **0.00 MHz** | - | - |
+| **Worst Negative Slack (WNS)** | **+0.000 ns** | - | **Timing Failed** |
+
+*Raw Vivado implementation reports: [`build_synth/utilization.rpt`](build_synth/utilization.rpt) and [`build_synth/timing.rpt`](build_synth/timing.rpt).*
+<!-- SYNTH_TABLE_END -->
+
+--
+
 ## Repository Structure
 
 ```directory
