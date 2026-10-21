@@ -5,19 +5,20 @@
 /.venv
 /sim_build
 
-# Organization Helper Files.
-/code_to_txt.py
-/combined_code.txt
+/sim_model/__pycache__
+/tb/__pycache__
 
+# Helper Scripts.
+/scripts
 /test.py
-/config.json
 
 # Extra Documents.
-/Aircraft_Engine_Project_Plan.pdf
-/Aircraft_Engine_Research_Plan.pdf
+/docs/Aircraft_Engine_Project_Plan.pdf
+/docs/Aircraft_Engine_Research_Plan.pdf
 
-# Extra Directories.
-/Diagrams
+# Extra Files.
+/tb/config.json
 
 # Outputs / Results.
 /software_results.csv
+/tb/results.xml
