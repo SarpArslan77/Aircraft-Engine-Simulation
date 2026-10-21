@@ -35,9 +35,9 @@ jobs:
         steps:
             # Pulls repo code onto the runner.
             - name: Checkout Repository
-              #? actions/checkout@v4: GitHub utility, performs 'git clone'
+              #? actions/checkout@v5: GitHub utility, performs 'git clone'
               #     of the repo onto VM.
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
             
             # Installs Icarus Verilog simulator via apt. 
             - name: Install Icarus Verilog (iverilog)
@@ -53,8 +53,8 @@ jobs:
 
             # Sets up the Python environment.
             - name: Set up Python
-              #? actions|setup-python@v5: GitHub tool, provisions Python.
-              uses: actions/setup-python@v5
+              #? actions|setup-python@v6: GitHub tool, provisions Python.
+              uses: actions/setup-python@v6
               with:
                 python-version: "3.12"
                 #? cache: "pip" -> Memorizes downloaded Python wheels.
@@ -76,9 +76,9 @@ jobs:
             - name: Upload Test Artifacts
               #? if: always(): Doesnt skip this step, even if the tests fail.
               if: always()
-              #? actions/upload-artifact@v4: Zips up files generated during the run
+              #? actions/upload-artifact@v5: Zips up files generated during the run
               #     and attaches them to the GitHub web page.
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                 name: simulation-results
                 #? path: Specifies which folders to zip.
