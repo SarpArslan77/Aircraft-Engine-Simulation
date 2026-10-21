@@ -76,9 +76,9 @@ jobs:
             - name: Upload Test Artifacts
               #? if: always(): Doesnt skip this step, even if the tests fail.
               if: always()
-              #? actions/upload-artifact@v5: Zips up files generated during the run
+              #? actions/upload-artifact@v6: Zips up files generated during the run
               #     and attaches them to the GitHub web page.
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                 name: simulation-results
                 #? path: Specifies which folders to zip.
