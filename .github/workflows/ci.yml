@@ -56,7 +56,7 @@ jobs:
               #? actions|setup-python@v5: GitHub tool, provisions Python.
               uses: actions/setup-python@v5
               with:
-                python-version: "3.11"
+                python-version: "3.12"
                 #? cache: "pip" -> Memorizes downloaded Python wheels.
                 cache: "pip"
             
