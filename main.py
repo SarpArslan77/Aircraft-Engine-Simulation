@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 #? platform: Retrieves information about the computer and operating system.
 import platform
+import sys
 from typing import List
 
 # ------- Externals. -------
@@ -16,10 +17,8 @@ from cocotb_tools.runner import (
     get_runner, 
     Runner
 )
-
 from numpy import float64
 from numpy.typing import NDArray
-
 from typing import Any
 
 # ------- Customs. -------
@@ -27,19 +26,20 @@ from sim_model.aircraft_engine_simulator_floating import (
     ConfigAircraftEngineSimulatorFloating,
     AircraftEngineSimulatorFloating
 )
-
 from sim_model.quantize_floats import quantize_floats
 from sim_model.aircraft_engine_simulator_fixed_point import (
     ConfigAircraftEngineSimulatorFixedPoint,
     AircraftEngineSimulatorFixedPoint
 )
-
 from sim_model.graph_visualizer import (
     ConfigGraphVisualizer,
     GraphVisualizer
 )
-
 from sim_model.verify_software import SoftwareVerifier
+from scripts.run_synthesis import (
+    ConfigSynthesisRunner,
+    SynthesisRunner
+)
 
 #* ======= Main Loop =======
 if __name__ == "__main__":
@@ -67,8 +67,13 @@ if __name__ == "__main__":
     SOFTWARE_RESULTS_FILE_PATH: Path = MAIN_DIR_PATH / f"{SOFTWARE_RESULTS_FILE_NAME}.csv"
 
     RTL_DIR_PATH: Path = MAIN_DIR_PATH / "rtl"
-
     TB_DIR_PATH: Path = MAIN_DIR_PATH / "tb"
+    BUILD_SYNTH_DIR_PATH: Path = MAIN_DIR_PATH / "build_synth"
+    SCRIPTS_DIR_PATH: Path = MAIN_DIR_PATH / "scripts"
+    TCL_SCRIPT_PATH: Path = SCRIPTS_DIR_PATH / "synth.tcl"
+    README_FILE_PATH: Path = MAIN_DIR_PATH / "README.md"
+
+    DEFAULT_VIVADO_PATH: Path = Path(r"D:\Programs\2025.2\Vivado\bin\vivado.bat")
 
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
@@ -281,6 +286,19 @@ if __name__ == "__main__":
     graph_visualizer = GraphVisualizer(
         config_graph_visualizer = config_graph_visualizer
     )
+
+    # Synthesis.
+    config_synthesis_runner = ConfigSynthesisRunner(
+        main_dir_path = MAIN_DIR_PATH,
+        build_synth_dir_path = BUILD_SYNTH_DIR_PATH,
+        scripts_dir_path = SCRIPTS_DIR_PATH,
+        tcl_script_path = TCL_SCRIPT_PATH,
+        readme_file_path = README_FILE_PATH,
+        default_vivado_path = DEFAULT_VIVADO_PATH
+    )
+
+    synthesis_runner = SynthesisRunner(config_synthesis_runner = config_synthesis_runner)
+
     # ------- Workflow. -------
     # Runs the aircraft engine simulation both floating and fixed point.
     fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating, time_history = aircraft_engine_simulator_floating.run_simulation(
@@ -394,3 +412,7 @@ if __name__ == "__main__":
         test_module = "test_engine",
         test_dir = TB_DIR_PATH
     )
+
+    # 'python main.py --synth'.
+    if ("--synth" in sys.argv): 
+        synthesis_runner.run_synthesis()
