@@ -23,23 +23,23 @@ from numpy.typing import NDArray
 from typing import Any
 
 # ------- Customs. -------
-from aircraft_engine_simulator_floating import (
+from sim_model.aircraft_engine_simulator_floating import (
     ConfigAircraftEngineSimulatorFloating,
     AircraftEngineSimulatorFloating
 )
 
-from quantize_floats import quantize_floats
-from aircraft_engine_simulator_fixed_point import (
+from sim_model.quantize_floats import quantize_floats
+from sim_model.aircraft_engine_simulator_fixed_point import (
     ConfigAircraftEngineSimulatorFixedPoint,
     AircraftEngineSimulatorFixedPoint
 )
 
-from graph_visualizer import (
+from sim_model.graph_visualizer import (
     ConfigGraphVisualizer,
     GraphVisualizer
 )
 
-from verify_software import SoftwareVerifier
+from sim_model.verify_software import SoftwareVerifier
 
 #* ======= Main Loop =======
 if __name__ == "__main__":
@@ -65,6 +65,10 @@ if __name__ == "__main__":
 
     SOFTWARE_RESULTS_FILE_NAME: str = "software_results"
     SOFTWARE_RESULTS_FILE_PATH: Path = MAIN_DIR_PATH / f"{SOFTWARE_RESULTS_FILE_NAME}.csv"
+
+    RTL_DIR_PATH: Path = MAIN_DIR_PATH / "rtl"
+
+    TB_DIR_PATH: Path = MAIN_DIR_PATH / "tb"
 
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
@@ -109,12 +113,12 @@ if __name__ == "__main__":
     TOP_MODULE: str = "aircraft_engine_simulator_top"
 
     VERILOG_SRC_FILE_PATHS: List[Path] = [
-        MAIN_DIR_PATH / "clock_prescaler.v",
-        MAIN_DIR_PATH / "calculate_target_values.v",
-        MAIN_DIR_PATH / "calculate_derivatives.v",
-        MAIN_DIR_PATH / "calculate_next_steps.v",
-        MAIN_DIR_PATH / "register_interface.v",
-        MAIN_DIR_PATH / f"{TOP_MODULE}.v"
+        RTL_DIR_PATH / "clock_prescaler.v",
+        RTL_DIR_PATH / "calculate_target_values.v",
+        RTL_DIR_PATH / "calculate_derivatives.v",
+        RTL_DIR_PATH / "calculate_next_steps.v",
+        RTL_DIR_PATH / "register_interface.v",
+        RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
     # Exports a JSON File, which containts parameters for other files.
@@ -136,7 +140,7 @@ if __name__ == "__main__":
     }
 
     with open( 
-        file = "config.json",
+        file = f"{TB_DIR_PATH}/config.json",
         mode = "w",
         encoding = "utf-8"
     ) as f:
@@ -387,5 +391,6 @@ if __name__ == "__main__":
     # Runs the testbench.
     runner.test(
         hdl_toplevel = TOP_MODULE,
-        test_module = "test_engine"
+        test_module = "test_engine",
+        test_dir = TB_DIR_PATH
     )
