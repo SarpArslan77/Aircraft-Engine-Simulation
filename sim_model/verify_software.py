@@ -85,4 +85,4 @@ class SoftwareVerifier:
         )
 
         print(f" --> State: {state_name} <-- ")
-        print(f"MAE: {mae:4f} | ME: {me:4f} | MSE: {mse:4f} , RMSE: {rmse:4f} | sqnr: {sqnr:4f} dB")
+        print(f"MAE: {mae:.4f} | ME: {me:.4f} | MSE: {mse:.4f} , RMSE: {rmse:.4f} | sqnr: {sqnr:.4f} dB")
