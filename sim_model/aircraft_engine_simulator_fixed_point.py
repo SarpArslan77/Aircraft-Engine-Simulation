@@ -24,7 +24,7 @@ from pandas import DataFrame
 from pathlib import Path
 
 # ------- Custom. -------
-from quantize_floats import quantize_floats
+from sim_model.quantize_floats import quantize_floats
 
 #* ======= Aircraft Engine Simulator's (Fixed Point Type) Config Dataclass =======
 @dataclass(frozen = True)
