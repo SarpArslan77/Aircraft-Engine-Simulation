@@ -1,9 +1,11 @@
 # Generic VSCode Files.
 /__pycache__
 /.vscode
-
 /.venv
+
 /sim_build
+/.ruff_cache
+/.Xil
 
 /sim_model/__pycache__
 /tb/__pycache__
