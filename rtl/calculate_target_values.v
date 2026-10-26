@@ -18,7 +18,7 @@ module calculate_target_values #(
     input wire clk, rst,
 
     // Dependents.
-    input wire signed [31:0] current_fuel_flow, 
+    input wire signed [31:0] current_fuel_flow,
     input wire signed [31:0] current_rotational_speed,
 
     // Gains.
@@ -28,8 +28,8 @@ module calculate_target_values #(
     input wire signed [31:0] mass_overflow_cooling_gain,
 
     // ------- Outputs. -------
-    output wire signed [31:0] target_rotational_speed, 
-    output wire signed [31:0] target_compressor_pressure, 
+    output wire signed [31:0] target_rotational_speed,
+    output wire signed [31:0] target_compressor_pressure,
     output wire signed [31:0] target_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
@@ -101,5 +101,4 @@ module calculate_target_values #(
             cooling_mult_q2 <= cooling_mult_q1;
         end
     end
-
 endmodule

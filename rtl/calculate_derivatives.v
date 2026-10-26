@@ -11,7 +11,7 @@ module calculate_derivatives #(
     parameter signed FRACTIONAL_BIT_WIDTH = 16,
 
     // Time Constants (Intertia).
-    parameter signed [31:0] PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST = 0,
+    parameter signed [31:0] PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = 0
 )(
@@ -20,18 +20,18 @@ module calculate_derivatives #(
     input wire clk, rst,
 
     // Currents.
-    input wire signed [31:0] current_rotational_speed, 
-    input wire signed [31:0] current_compressor_pressure, 
+    input wire signed [31:0] current_rotational_speed,
+    input wire signed [31:0] current_compressor_pressure,
     input wire signed [31:0] current_exhaust_gas_temperature,
 
     // Targets.
-    input wire signed [31:0] target_rotational_speed, 
-    input wire signed [31:0] target_compressor_pressure, 
+    input wire signed [31:0] target_rotational_speed,
+    input wire signed [31:0] target_compressor_pressure,
     input wire signed [31:0] target_exhaust_gas_temperature,
 
     // ------- Outputs. -------
-    output wire signed [31:0] d_rotational_speed, 
-    output wire signed [31:0] d_compressor_pressure, 
+    output wire signed [31:0] d_rotational_speed,
+    output wire signed [31:0] d_compressor_pressure,
     output wire signed [31:0] d_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
@@ -68,12 +68,11 @@ module calculate_derivatives #(
             exhaust_gas_temperature_mult_q <= 0;
         end
         else begin
-            rotational_speed_mult_q <= PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST * rotational_speed_delta;
+            rotational_speed_mult_q <= PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST * rotational_speed_delta;
 
             compressor_pressure_mult_q <= PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST * compressor_pressure_delta;
 
             exhaust_gas_temperature_mult_q <= PRE_CALCULATED_THERMAL_TIME_CONST * exhaust_gas_temperature_delta;
         end
     end
-
 endmodule

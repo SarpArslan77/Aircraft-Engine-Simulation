@@ -6,7 +6,7 @@
 //* ======= Next Step Calculation =======
 module calculate_next_steps #(
     // ------- Parameters. -------
-    // Data Representation. 
+    // Data Representation.
     parameter INTEGER_BIT_WIDTH = 16,
     parameter FRACTIONAL_BIT_WIDTH = 16,
 
@@ -16,27 +16,27 @@ module calculate_next_steps #(
 )(
     // ------- Inputs. -------
     // Currents.
-    input wire signed [31:0] current_rotational_speed, 
-    input wire signed [31:0] current_compressor_pressure, 
+    input wire signed [31:0] current_rotational_speed,
+    input wire signed [31:0] current_compressor_pressure,
     input wire signed [31:0] current_exhaust_gas_temperature,
 
     // Derivatives.
-    input wire signed [31:0] d_rotational_speed, 
-    input wire signed [31:0] d_compressor_pressure, 
+    input wire signed [31:0] d_rotational_speed,
+    input wire signed [31:0] d_compressor_pressure,
     input wire signed [31:0] d_exhaust_gas_temperature,
 
     // ------- Outputs. -------
-    output wire signed [31:0] next_rotational_speed, 
-    output wire signed [31:0] next_compressor_pressure, 
+    output wire signed [31:0] next_rotational_speed,
+    output wire signed [31:0] next_compressor_pressure,
     output wire signed [31:0] next_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
 
     // Maximum Possible Numbers.
-    localparam MAX_ROTATIONAL_SPEED = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
-    localparam MAX_COMPRESSOR_PRESSURE = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
-    localparam MAX_EXHAUST_GAS_TEMPERATURE = (32'b1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_ROTATIONAL_SPEED = (32'd1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_COMPRESSOR_PRESSURE = (32'd1 << (TOTAL_BIT_WIDTH-1)) - 1;
+    localparam MAX_EXHAUST_GAS_TEMPERATURE = (32'd1 << (TOTAL_BIT_WIDTH-1)) - 1;
 
     //* ======= Wires. =======
     // ------- Rotational Speed. -------
@@ -46,7 +46,7 @@ module calculate_next_steps #(
     wire is_pos_overflow_detected_rotational_speed = (~current_rotational_speed[TOTAL_BIT_WIDTH-1] & ~d_rotational_speed[TOTAL_BIT_WIDTH-1] & calculated_rotational_speed[TOTAL_BIT_WIDTH-1]); // Pos + Pos = Neg.
     wire signed [TOTAL_BIT_WIDTH-1:0] pos_saturated_rotational_speed = is_pos_overflow_detected_rotational_speed ? MAX_ROTATIONAL_SPEED : calculated_rotational_speed;
 
-    // Negative Overflow Detection.    
+    // Negative Overflow Detection.
     assign next_rotational_speed = (pos_saturated_rotational_speed[TOTAL_BIT_WIDTH-1]) ? 0 : pos_saturated_rotational_speed;
 
     // ------- Compressor Pressure. -------
@@ -64,5 +64,4 @@ module calculate_next_steps #(
     wire signed [TOTAL_BIT_WIDTH-1:0] pos_saturated_exhaust_gas_temperature = is_pos_overflow_detected_exhaust_gas_temperature ? MAX_EXHAUST_GAS_TEMPERATURE : calculated_exhaust_gas_temperature;
 
     assign next_exhaust_gas_temperature = (pos_saturated_exhaust_gas_temperature < AMBIENT_TEMPERATURE) ? AMBIENT_TEMPERATURE : pos_saturated_exhaust_gas_temperature;
-
 endmodule

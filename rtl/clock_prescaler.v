@@ -25,7 +25,7 @@ module clock_prescaler #(
     always @(posedge clk) begin
         if (rst) begin
             counter <= 0;
-            
+
             clk_en_1ms <= 0;
         end
         else begin
