@@ -5,41 +5,32 @@
 # ------- Native. -------
 import json
 import os
-from pathlib import Path
+
 #? platform: Retrieves information about the computer and operating system.
 import platform
 import sys
-from typing import List
+from pathlib import Path
+from typing import Any
 
 # ------- Externals. -------
 #? get_runner(): Factory function, returns a simulator-specific controller.
-from cocotb_tools.runner import (
-    get_runner, 
-    Runner
-)
+from cocotb_tools.runner import Runner, get_runner
 from numpy import float64
 from numpy.typing import NDArray
-from typing import Any
 
 # ------- Customs. -------
-from sim_model.aircraft_engine_simulator_floating import (
-    ConfigAircraftEngineSimulatorFloating,
-    AircraftEngineSimulatorFloating
-)
-from sim_model.quantize_floats import quantize_floats
+from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
 from sim_model.aircraft_engine_simulator_fixed_point import (
+    AircraftEngineSimulatorFixedPoint,
     ConfigAircraftEngineSimulatorFixedPoint,
-    AircraftEngineSimulatorFixedPoint
 )
-from sim_model.graph_visualizer import (
-    ConfigGraphVisualizer,
-    GraphVisualizer
+from sim_model.aircraft_engine_simulator_floating import (
+    AircraftEngineSimulatorFloating,
+    ConfigAircraftEngineSimulatorFloating,
 )
+from sim_model.graph_visualizer import ConfigGraphVisualizer, GraphVisualizer
+from sim_model.quantize_floats import quantize_floats
 from sim_model.verify_software import SoftwareVerifier
-from scripts.run_synthesis import (
-    ConfigSynthesisRunner,
-    SynthesisRunner
-)
 
 #* ======= Main Loop =======
 if __name__ == "__main__":
@@ -117,7 +108,7 @@ if __name__ == "__main__":
     # Hardware Simulation.
     TOP_MODULE: str = "aircraft_engine_simulator_top"
 
-    VERILOG_SRC_FILE_PATHS: List[Path] = [
+    VERILOG_SRC_FILE_PATHS: list[Path] = [
         RTL_DIR_PATH / "clock_prescaler.v",
         RTL_DIR_PATH / "calculate_target_values.v",
         RTL_DIR_PATH / "calculate_derivatives.v",
@@ -293,8 +284,7 @@ if __name__ == "__main__":
         build_synth_dir_path = BUILD_SYNTH_DIR_PATH,
         scripts_dir_path = SCRIPTS_DIR_PATH,
         tcl_script_path = TCL_SCRIPT_PATH,
-        readme_file_path = README_FILE_PATH,
-        default_vivado_path = DEFAULT_VIVADO_PATH
+        readme_file_path = README_FILE_PATH
     )
 
     synthesis_runner = SynthesisRunner(config_synthesis_runner = config_synthesis_runner)
@@ -396,7 +386,7 @@ if __name__ == "__main__":
             "COMBUSTION_HEAT_GAIN": COMBUSTION_HEAT_GAIN_QUANTIZED,
             "MASS_OVERFLOW_COOLING_GAIN": MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
 
-            "PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
+            "PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
             "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
             "PRE_CALCULATED_THERMAL_TIME_CONST": PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
 
