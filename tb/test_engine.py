@@ -3,22 +3,28 @@
 
 #* ======= Libraries =======
 # ------- Native. -------
-from dataclasses import dataclass
-
 import json
-
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 # ------- Externals. -------
-#TODO AC
 #? cocotb (Coroutine-based Co-simulation Testbench environment):
 #   Open-source, Python-based hardware verification framework for RTL designs.
 import cocotb
+import numpy as np
+import pandas as pd
+
 #? Clock: Utility class, drives an periodic square-wave signal .
 #   - signal: Input clock pin.
 #   - period: Total duration of one full clock cycle.
 #   - units: Physical unit of time for the period.
 from cocotb.clock import Clock
+
+#? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
+#   reg or port inside the simulatrors netlist.
+from cocotb.handle import SimHandleBase
+
 #? RisingEdge: Trigger, pauses the Python coroutine until the signal pulses high.
 #   - signal: Wire, register or pin object, that gets monitored.
 #? ClockCycles: Trigger, pauses the the coroutine until the signal has pulsed.
@@ -26,24 +32,11 @@ from cocotb.clock import Clock
 #   - signal: Clock signal to count edges on.
 #   - num_cycles: Total number of clock edges to wait before resuming.
 #   - rising: Counts rising edges (True: 0 -> 1 & False: 1 -> 0).
-from cocotb.triggers import (
-    RisingEdge,
-    ClockCycles
-)
-#? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
-#   reg or port inside the simulatrors netlist.
-from cocotb.handle import SimHandleBase
-
-import numpy as np
-from numpy import (
-    int64
-)
+from cocotb.triggers import ClockCycles, RisingEdge
+from numpy import int64
 from numpy.typing import NDArray
-
-from pathlib import Path
-
-import pandas as pd
 from pandas import DataFrame
+
 
 #* ======= Aircraft Engine Tester's Config Dataclass =======
 @dataclass(frozen = True)
@@ -80,6 +73,9 @@ class ConfigEngineTester:
     # ------- Simulation. -------
     simulation_step: float
     total_simulation_time: float
+
+    # ------- Engine Limits. -------
+    max_compressor_temperature: int
 
 #* ======= Aircraft Engine Tester =======
 class EngineTester:
@@ -205,12 +201,13 @@ class EngineTester:
             addr = self._cfg.addr_control,
             data = 1
         )
-        dut._log.info(msg = f"Engine start commanded!")
+        dut._log.info(msg = "Engine start commanded!")
 
         # Waits for 1 tick so the hardware officially enters running state.
         while True:
             await RisingEdge(dut.clk)
-            if (dut.clk_en_1ms.value == 1): break
+            if (dut.clk_en_1ms.value == 1): 
+                break
 
     # ------- The Smoke Test. -------
     async def run_smoke_test(
@@ -273,7 +270,7 @@ class EngineTester:
             addr = self._cfg.addr_control,
             data = 1
         )
-        dut._log.info(msg = f"Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
+        dut._log.info(msg = "Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
 
         # Waits for Euoler integration cycles.
         for _ in range(50):
@@ -332,7 +329,7 @@ class EngineTester:
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
         )
 
-        for i in range(0, total_steps):
+        for i in range(total_steps+1):
             # Writes the fuel flow values for the current step.
             await self._bus_write(
                 dut = dut,
@@ -343,7 +340,8 @@ class EngineTester:
             # Advances clock cycles until domain clock pulses.
             while True:
                 await RisingEdge(dut.clk)
-                if (dut.clk_en_1ms.value == 1): break
+                if (dut.clk_en_1ms.value == 1): 
+                    break
 
             # Reads the hardware registers.
             hardware_speed_result: int64 = await self._bus_read(
@@ -364,14 +362,14 @@ class EngineTester:
             )
 
             # Compares the results.
-            if (abs(hardware_speed_result - speed_col[i]) >= 2):
-                print(f"speed: {hardware_speed_result} vs. {speed_col[i]}")
-            if (abs(hardware_pressure_result - pressure_col[i]) >= 2):
-                print(f"pressure: {hardware_pressure_result} vs. {pressure_col[i]}")
-            if (abs(hardware_temperature_result - temperature_col[i]) >= 2):
-                print(f"temperature: {hardware_temperature_result} vs. {temperature_col[i]}")
-            if (hardware_is_engine_broken_result != is_engine_broken_col[i]):
-                print(f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i]}")
+            assert (abs(hardware_speed_result - speed_col[i]) < 2), \
+                f"speed: {hardware_speed_result} vs. {speed_col[i]}"
+            assert (abs(hardware_pressure_result - pressure_col[i]) < 2), \
+                f"pressure: {hardware_pressure_result} vs. {pressure_col[i]}"
+            assert (abs(hardware_temperature_result - temperature_col[i]) < 2), \
+                f"temperature: {hardware_temperature_result} vs. {temperature_col[i]}"
+            assert (hardware_is_engine_broken_result == is_engine_broken_col[i]), \
+                f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i]}"
 
     async def run_compressor_stall_test(
             self,
@@ -388,8 +386,8 @@ class EngineTester:
         # Starts the engine.
         await self._start_engine(dut = dut)
 
-        # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
-        fuel_command_q16: int = 10 << 16 #TODO FTH
+        # Writes to fuel command register (90 kg/h in Q16.16 = 90 << 16).
+        fuel_command_q16: int = 90 << 16 #TODO FTH
         await self._bus_write(
             dut = dut,
             addr = self._cfg.addr_fuel_flow_command,
@@ -415,7 +413,32 @@ class EngineTester:
             data = 1
         )
 
-        
+        # Waits for the temperature to raise and engine to break.
+        for _ in range(5000): #TODO Optimize this by calculating how many cycles it takes to break.
+            await RisingEdge(dut.clk_en_1ms)
+
+        # Reads the temperature.
+        read_temperature_value: int = await self._bus_read(
+            dut = dut,
+            addr = self._cfg.addr_temperature
+        )
+        read_temperature_value_scaled: int = (read_temperature_value >> 16) #TODO FTH
+
+        # Checks red-temperature value is greater then thermal limit.
+        assert (read_temperature_value_scaled > self._cfg.max_compressor_temperature), \
+            f"Thermal limit not reached! Maximum allowed temperature {self._cfg.max_compressor_temperature}, read-value {read_temperature_value_scaled}"
+        dut._log.info(msg = f"Thermal limit reached: {read_temperature_value_scaled}")
+
+        # Reads the engine status.
+        read_engine_status_value: int = await self._bus_read(
+            dut = dut,
+            addr = self._cfg.addr_status
+        )
+
+        # Checks red-status value is equals to a broken engine.
+        assert (read_engine_status_value == 1), \
+            f"Engine did not break! Current status: {read_engine_status_value}"
+        dut._log.info(msg = f"Engine broke! Status: {read_engine_status_value}")
 
 #* ======= Helper Functions =======
 # ------- JSON Loader. -------
