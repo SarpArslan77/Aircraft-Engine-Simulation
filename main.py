@@ -5,9 +5,9 @@
 # ------- Native. -------
 import json
 import os
-
 #? platform: Retrieves information about the computer and operating system.
 import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,6 +31,7 @@ from sim_model.aircraft_engine_simulator_floating import (
 from sim_model.graph_visualizer import ConfigGraphVisualizer, GraphVisualizer
 from sim_model.quantize_floats import quantize_floats
 from sim_model.verify_software import SoftwareVerifier
+from subprocess import CompletedProcess
 
 #* ======= Main Loop =======
 if __name__ == "__main__":
@@ -131,7 +132,9 @@ if __name__ == "__main__":
             "software_results_file_path_str": str(SOFTWARE_RESULTS_FILE_PATH),
 
             "simulation_step": SIMULATION_STEP,
-            "total_simulation_time": TOTAL_SIMULATION_TIME
+            "total_simulation_time": TOTAL_SIMULATION_TIME,
+
+            "max_compressor_temperature": MAX_COMPRESSOR_TEMPERATURE
         }
     }
 
@@ -284,7 +287,9 @@ if __name__ == "__main__":
         build_synth_dir_path = BUILD_SYNTH_DIR_PATH,
         scripts_dir_path = SCRIPTS_DIR_PATH,
         tcl_script_path = TCL_SCRIPT_PATH,
-        readme_file_path = README_FILE_PATH
+        readme_file_path = README_FILE_PATH,
+
+        default_vivado_path = DEFAULT_VIVADO_PATH
     )
 
     synthesis_runner = SynthesisRunner(config_synthesis_runner = config_synthesis_runner)
@@ -406,3 +411,26 @@ if __name__ == "__main__":
     # 'python main.py --synth'.
     if ("--synth" in sys.argv): 
         synthesis_runner.run_synthesis()
+
+    # 'python main.py --lint'.
+    if ("--lint" in sys.argv):
+        # Runs Ruff.
+        ruff_result: CompletedProcess = subprocess.run(
+            ["ruff", "check", "."],
+            cwd = MAIN_DIR_PATH    
+        )
+
+        # Runs Verible.
+        verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
+
+        verible_result: CompletedProcess = subprocess.run(
+            ["verible-verilog-lint", "--rules_config", ".rules.verible_lint"] + verilog_file_paths,
+            cwd = MAIN_DIR_PATH
+        )
+
+        # Checks for failures.
+        if(ruff_result.returncode != 0) or (verible_result.returncode != 0):
+            print("Linting failed!")
+            # Exits with an error code so Git knows it failed.
+            sys.exit(1)
+        else: print("Linting passed!")
