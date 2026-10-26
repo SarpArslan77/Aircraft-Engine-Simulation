@@ -1,0 +1,37 @@
+
+#* ======= Python Linting =======
+
+name: Ruff
+
+on:
+  push:
+  pull_request:
+  #? workflow_dispatch: Enables manually triggering the workflow from GitHub.
+  workflow_dispatch:
+
+#? permissions: Defines permissions granted to the workflow's 'GITHUB_TOKEN.
+permissions:
+  #? contents: read -> Grants permission to read repository contents.
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        #? checkout: Checks out the repository's files into GitHub Action runner's working directory. 
+        uses: actions/checkout@v4
+
+      - name: Run Ruff
+        #? astral-sh: Actions owner.
+        #? ruff-action: Sets up and runs Ruff on the workflow.
+        uses: astral-sh/ruff-action@v4.1.0
+        #? with: Supplies input parameters to the action.
+        with:
+          version: "0.17.1"
+          #? src: Tells Ruff Action which source path to check.
+          src: .
+          #? args: Specifies the command-line arguments passed to Ruff.
+          args: check --output-format=github
