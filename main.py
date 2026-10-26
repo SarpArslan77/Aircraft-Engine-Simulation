@@ -429,8 +429,9 @@ if __name__ == "__main__":
         )
 
         # Checks for failures.
-        if(ruff_result.returncode != 0) or (verible_result.returncode != 0):
+        if (ruff_result.returncode != 0) or (verible_result.returncode != 0):
             print("Linting failed!")
             # Exits with an error code so Git knows it failed.
             sys.exit(1)
-        else: print("Linting passed!")
+        else: 
+            print("Linting passed!")

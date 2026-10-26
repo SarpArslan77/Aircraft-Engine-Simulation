@@ -44,8 +44,10 @@ class SynthesisRunner:
         # ------- Layer-wise Search of Vivado Executable. -------
         # Finds out the OS.
         #? os.name == "nt": Checks if the OS is Windows.
-        if (os.name == "nt"): vivado_bin_relative_path = Path("bin/vivado.bat")
-        else: vivado_bin_relative_path = Path("bin/vivado")
+        if (os.name == "nt"): 
+            vivado_bin_relative_path = Path("bin/vivado.bat")
+        else: 
+            vivado_bin_relative_path = Path("bin/vivado")
 
         # Searches in system environment variables.
         vivado_env_dir: str | None = os.environ.get("XILINX_VIVADO", None)
@@ -53,11 +55,13 @@ class SynthesisRunner:
             # Combines the folder path with the executable path.
             vivado_path: Path = Path(vivado_env_dir) / vivado_bin_relative_path
 
-            if vivado_path.is_file(): return vivado_path
+            if vivado_path.is_file(): 
+                return vivado_path
 
         # Searches in system 'PATH'.
         vivado_system_path: str | None = shutil.which(cmd = "vivado")
-        if vivado_system_path: return Path(vivado_system_path)
+        if vivado_system_path: 
+            return Path(vivado_system_path)
 
         # Searches in common installation directories.
         vivado_common_installation_dirs: list[Path] = [
@@ -78,7 +82,8 @@ class SynthesisRunner:
                     if version_dir.is_dir():
                         vivado_path: Path = version_dir / vivado_bin_relative_path
 
-                        if vivado_path.is_file(): return vivado_path
+                        if vivado_path.is_file(): 
+                            return vivado_path
 
         # Falls back to the configured default path.
         return self._cfg.default_vivado_path
