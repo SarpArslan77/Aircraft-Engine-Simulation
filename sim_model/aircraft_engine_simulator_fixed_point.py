@@ -7,24 +7,18 @@
 #* ======= Libraries =======
 # ------- Natives. -------
 from dataclasses import dataclass
-from decimal import (
-    Decimal,
-    DecimalTuple
-)
+from decimal import Decimal, DecimalTuple
+from pathlib import Path
 
 # ------- Externals. -------
 import numpy as np
-from numpy import (
-    float64,
-    int64
-)
+from numpy import float64, int64
 from numpy.typing import NDArray
-import pandas as pd
 from pandas import DataFrame
-from pathlib import Path
 
 # ------- Custom. -------
 from sim_model.quantize_floats import quantize_floats
+
 
 #* ======= Aircraft Engine Simulator's (Fixed Point Type) Config Dataclass =======
 @dataclass(frozen = True)
@@ -450,7 +444,7 @@ class AircraftEngineSimulatorFixedPoint:
         combustion_heat_gain: int = self._cfg.combustion_heat_gain_quantized
         mass_overflow_cooling_gain: int = self._cfg.mass_overflow_cooling_gain_quantized
 
-        for i in range(0, total_steps):
+        for i in range(total_steps):
             # Calculates the current physical simulation time.
             k: float = i * self._cfg.simulation_step
 
@@ -500,14 +494,11 @@ class AircraftEngineSimulatorFixedPoint:
 
             # ------- Controls the next values. -------
             # Clamps the results to minimum safeguards.
-            if (next_speed < 0):
-                next_speed = 0
+            next_speed = max(next_speed, 0)
             
-            if (next_pressure < self._cfg.ambient_pressure_quantized):
-                next_pressure = self._cfg.ambient_pressure_quantized
+            next_pressure = max(next_pressure, self._cfg.ambient_pressure_quantized)
             
-            if (next_temperature < self._cfg.ambient_temperature_quantized):
-                next_temperature = self._cfg.ambient_temperature_quantized
+            next_temperature = max(next_temperature, self._cfg.ambient_temperature_quantized)
             
             # Monitors for maximum limit breaches.
             if (current_speed > self._cfg.max_rotational_speed_quantized) or \

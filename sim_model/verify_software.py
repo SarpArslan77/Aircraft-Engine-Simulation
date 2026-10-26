@@ -2,15 +2,11 @@
 #* verify_software.py
 
 #* ======= Libraries =======
-# ------- Native. -------
-
 # ------- Externals. -------
 import numpy as np
+from numpy import inf
 from numpy.typing import NDArray
-from numpy import (
-    float64, 
-    inf
-)
+
 
 #* ======= Software Verifier =======
 class SoftwareVerifier:

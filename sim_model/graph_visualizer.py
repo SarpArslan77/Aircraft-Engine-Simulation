@@ -7,17 +7,14 @@ from dataclasses import dataclass
 
 # ------- Externals. -------
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.widgets import CheckButtons
-
-import numpy as np
-from numpy import (
-    float64,
-    int64
-)
+from numpy import float64, int64
 from numpy.typing import NDArray
+
 
 #* ======= Graph Visualizer's Config Dataclass =======
 @dataclass(frozen = True)

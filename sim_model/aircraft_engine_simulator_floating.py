@@ -49,6 +49,7 @@ import numpy as np
 from numpy import float64
 from numpy.typing import NDArray
 
+
 #* ======= Aircraft Engine Simulator's (Floating Type) Config Dataclass =======
 @dataclass(frozen = True)
 class ConfigAircraftEngineSimulatorFloating:
@@ -138,17 +139,11 @@ class AircraftEngineSimulatorFloating:
             fuel_flow = 10.0
 
         # Throttle slam / rapic acceleration.
-        elif (k == 2.0):
+        elif (k == 2.0) or (2.0 < k < 18.0):
             fuel_flow = 90.0
-        elif (2.0 < k < 18.0):
-            fuel_flow = 90.
 
         # Throttle chop / deceleration.
-        elif (k == 18.0):
-            fuel_flow = 10.0
-        elif (18.0 < k < self._cfg.total_simulation_time):
-            fuel_flow = 10.0
-        elif (k == self._cfg.total_simulation_time):
+        elif (k == 18.0) or (18.0 < k < self._cfg.total_simulation_time) or (k == self._cfg.total_simulation_time):
             fuel_flow = 10.0
 
         return fuel_flow
@@ -383,7 +378,7 @@ class AircraftEngineSimulatorFloating:
         combustion_heat_gain: float = self._cfg.combustion_heat_gain
         mass_overflow_cooling_gain: float = self._cfg.mass_overflow_cooling_gain
 
-        for i in range(0, total_steps):
+        for i in range(total_steps):
             # Calculates the current physical simulation time.
             k: float = i * self._cfg.simulation_step
 
@@ -431,14 +426,11 @@ class AircraftEngineSimulatorFloating:
 
             # ------- Controls the next values. -------
             # Clamps the results to minimum safeguards.
-            if (next_speed < 0.0):
-                next_speed = 0.0
+            next_speed = max(next_speed, 0.0)
 
-            if (next_pressure < self._cfg.ambient_pressure):
-                next_pressure = self._cfg.ambient_pressure
+            next_pressure = max(next_pressure, self._cfg.ambient_pressure)
 
-            if (next_temperature < self._cfg.ambient_temperature):
-                next_temperature = self._cfg.ambient_temperature
+            next_temperature = max(next_temperature, self._cfg.ambient_temperature)
 
             # Monitors for maximum limit breaches.
             if (current_speed > self._cfg.max_rotational_speed) or \
