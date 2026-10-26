@@ -497,7 +497,9 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
         software_results_file_path_str = active_file_config["software_results_file_path_str"],
 
         simulation_step = active_file_config["simulation_step"],
-        total_simulation_time = active_file_config["total_simulation_time"]
+        total_simulation_time = active_file_config["total_simulation_time"],
+
+        max_compressor_temperature = active_file_config["max_compressor_temperature"]
     )
 
     tester = EngineTester(config_engine_tester = config_engine_tester)
@@ -509,8 +511,7 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     # Loads the config file.
     config: dict[str, Any] = load_config()
     
-    # Extracts the current files parameters from the JSON file.
-    #? .stem: Retrieves the active file names, without the extension.
+    # Extracts the current file's parameters from the JSON file.
     active_file_name: str = Path(__file__).stem
     active_file_config: dict = config[active_file_name]
     
@@ -526,9 +527,41 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
         software_results_file_path_str = active_file_config["software_results_file_path_str"],
     
         simulation_step = active_file_config["simulation_step"],
-        total_simulation_time = active_file_config["total_simulation_time"]
+        total_simulation_time = active_file_config["total_simulation_time"],
+
+        max_compressor_temperature = active_file_config["max_compressor_temperature"]
     )
     
     tester = EngineTester(config_engine_tester = config_engine_tester)
 
     await tester.run_golden_reference_verification_test(dut = dut)
+
+@cocotb.test()
+async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
+    # Loads the config file.
+    config: dict[str, Any] = load_config()
+
+    # Extracts the current file's parameters from the JSON file.
+    active_file_name: str = Path(__file__).stem
+    active_file_config: dict = config[active_file_name]
+
+    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
+        addr_control = active_file_config["addr_control"],
+        addr_status = active_file_config["addr_status"],
+        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
+        addr_speed = active_file_config["addr_speed"],
+        addr_pressure = active_file_config["addr_pressure"],
+        addr_temperature = active_file_config["addr_temperature"],
+        addr_fault_injection = active_file_config["addr_fault_injection"],
+    
+        software_results_file_path_str = active_file_config["software_results_file_path_str"],
+    
+        simulation_step = active_file_config["simulation_step"],
+        total_simulation_time = active_file_config["total_simulation_time"],
+    
+        max_compressor_temperature = active_file_config["max_compressor_temperature"]
+    )
+
+    tester = EngineTester(config_engine_tester = config_engine_tester)
+    
+    await tester.run_compressor_stall_test(dut = dut)
