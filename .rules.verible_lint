@@ -1,0 +1,14 @@
+
+# ======= Verible Lint Configurations =======
+# Allows lines longer than 100 chars.
+-line-length
+
+# Allows 'ALL_CAPS' style for constants and localparams.
+-parameter-name-style
+
+# This rule checks whether every 'parameter' and 'localparam' decleration
+#   explicitly specifies a data type. It is here disabled.
+-explicit-parameter-storage-type
+
+# Allows combinational logic using always '@(*)'.
+-always-comb
