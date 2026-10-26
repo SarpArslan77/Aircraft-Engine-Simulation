@@ -5,7 +5,7 @@
 
 //* ======= Register Interface for the Aircraft Engine =======
 module register_interface #(
-    parameter TOTAL_BIT_WIDTH = 32
+    parameter integer TOTAL_BIT_WIDTH = 32
 )(
     // ------- Inputs. -------
     // System Signals.
@@ -47,7 +47,7 @@ module register_interface #(
     localparam [7:0] ADDR_FAULT_INJECTION = 8'h18; // Intentional Internal Parameter Altercation.
 
     // Constant.
-    localparam ZERO_32BIT = {TOTAL_BIT_WIDTH{1'b0}};
+    localparam [TOTAL_BIT_WIDTH-1:0] ZERO_32BIT = {TOTAL_BIT_WIDTH{1'b0}};
 
     // ------- Registers. -------
     reg [TOTAL_BIT_WIDTH-1:0] control_reg;
@@ -100,11 +100,11 @@ module register_interface #(
 
                 ADDR_FUEL_FLOW_COMMAND: bus_rdata <= fuel_flow_command_reg;
 
-                ADDR_SPEED: bus_rdata <= current_speed;
+                ADDR_SPEED: bus_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_speed;
 
-                ADDR_PRESSURE: bus_rdata <= current_pressure;
+                ADDR_PRESSURE: bus_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_pressure;
 
-                ADDR_TEMPERATURE: bus_rdata <= current_temperature;
+                ADDR_TEMPERATURE: bus_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_temperature;
 
                 ADDR_FAULT_INJECTION: bus_rdata <= fault_injection_reg;
 
@@ -113,7 +113,5 @@ module register_interface #(
                 default: bus_rdata <= 32'hDEAD_BEEF;
             endcase
         end
-
-        else bus_rdata <= ZERO_32BIT;
     end
 endmodule
