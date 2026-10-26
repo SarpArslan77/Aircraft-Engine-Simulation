@@ -9,7 +9,7 @@ module aircraft_engine_simulator_top #(
     // Frequencies.
     parameter SYSTEM_CLK_FREQ = 100_000_000, // [Hz].
     parameter TARGET_CLK_FREQ = 1_000,
-    
+
     // Data Representation.
     parameter INTEGER_BIT_WIDTH = 16,
     parameter FRACTIONAL_BIT_WIDTH = 16,
@@ -25,7 +25,7 @@ module aircraft_engine_simulator_top #(
     parameter signed [31:0] MASS_OVERFLOW_COOLING_GAIN = 0,
 
     // Time Constants (Inertia).
-    parameter signed [31:0] PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST = 0,
+    parameter signed [31:0] PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = 0,
 
@@ -109,7 +109,7 @@ module aircraft_engine_simulator_top #(
     wire signed [TOTAL_BIT_WIDTH-1:0] d_temperature;
 
     // NSC.
-    wire signed [TOTAL_BIT_WIDTH-1:0] next_speed; 
+    wire signed [TOTAL_BIT_WIDTH-1:0] next_speed;
     wire signed [TOTAL_BIT_WIDTH-1:0] next_pressure;
     wire signed [TOTAL_BIT_WIDTH-1:0] next_temperature;
 
@@ -183,7 +183,7 @@ module aircraft_engine_simulator_top #(
         .clk(clk), .rst(rst),
 
         // Dependents.
-        .current_fuel_flow(current_fuel_flow_r), 
+        .current_fuel_flow(current_fuel_flow_r),
         .current_rotational_speed(current_speed_r),
 
         // Gains.
@@ -194,8 +194,8 @@ module aircraft_engine_simulator_top #(
 
         // Outputs.
         // Target States.
-        .target_rotational_speed(target_speed), 
-        .target_compressor_pressure(target_pressure), 
+        .target_rotational_speed(target_speed),
+        .target_compressor_pressure(target_pressure),
         .target_exhaust_gas_temperature(target_temperature)
     );
 
@@ -207,7 +207,7 @@ module aircraft_engine_simulator_top #(
         .FRACTIONAL_BIT_WIDTH(FRACTIONAL_BIT_WIDTH),
 
         // Time Constants (Inertia).
-        .PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST(PRE_CALCULATED_ROTOR_INTERTIAL_TIME_CONST),
+        .PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST(PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST),
         .PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST(PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST),
         .PRE_CALCULATED_THERMAL_TIME_CONST(PRE_CALCULATED_THERMAL_TIME_CONST)
     ) inst_calculate_derivatives (
@@ -215,18 +215,18 @@ module aircraft_engine_simulator_top #(
         .clk(clk), .rst(rst),
 
         // Currents.
-        .current_rotational_speed(current_speed_r), 
-        .current_compressor_pressure(current_pressure_r), 
+        .current_rotational_speed(current_speed_r),
+        .current_compressor_pressure(current_pressure_r),
         .current_exhaust_gas_temperature(current_temperature_r),
 
         // Targets.
-        .target_rotational_speed(target_speed), 
-        .target_compressor_pressure(target_pressure), 
+        .target_rotational_speed(target_speed),
+        .target_compressor_pressure(target_pressure),
         .target_exhaust_gas_temperature(target_temperature),
 
         // Outputs.
-        .d_rotational_speed(d_speed), 
-        .d_compressor_pressure(d_pressure), 
+        .d_rotational_speed(d_speed),
+        .d_compressor_pressure(d_pressure),
         .d_exhaust_gas_temperature(d_temperature)
     );
 
@@ -244,18 +244,18 @@ module aircraft_engine_simulator_top #(
     ) inst_calculate_next_steps (
         // Inputs.
         // Currents.
-        .current_rotational_speed(current_speed_r), 
-        .current_compressor_pressure(current_pressure_r), 
+        .current_rotational_speed(current_speed_r),
+        .current_compressor_pressure(current_pressure_r),
         .current_exhaust_gas_temperature(current_temperature_r),
 
         // Derivatives.
-        .d_rotational_speed(d_speed), 
-        .d_compressor_pressure(d_pressure), 
+        .d_rotational_speed(d_speed),
+        .d_compressor_pressure(d_pressure),
         .d_exhaust_gas_temperature(d_temperature),
 
         // Outputs.
-        .next_rotational_speed(next_speed), 
-        .next_compressor_pressure(next_pressure), 
+        .next_rotational_speed(next_speed),
+        .next_compressor_pressure(next_pressure),
         .next_exhaust_gas_temperature(next_temperature)
     );
 
@@ -319,6 +319,10 @@ module aircraft_engine_simulator_top #(
                 STATE_SHUTDOWN: begin
                     current_fuel_flow_r <= 0;
                 end
+
+                default: begin
+                    current_fuel_flow_r <= 0;
+                end
             endcase
         end
     end
@@ -338,12 +342,15 @@ module aircraft_engine_simulator_top #(
             end
 
             STATE_EMERGENCY: begin
-                //TODO Add a condition here.
-                next_state = STATE_SHUTDOWN;
+                if (current_speed_r == 0) next_state = STATE_SHUTDOWN;
             end
 
             STATE_SHUTDOWN: begin
                 if (restart_engine) next_state = STATE_IDLE;
+            end
+
+            default: begin
+                next_state = STATE_IDLE;
             end
         endcase
     end
