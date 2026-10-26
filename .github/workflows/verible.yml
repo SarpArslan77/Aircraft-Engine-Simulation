@@ -1,11 +1,11 @@
 
-#* ======= Verilog Linting =======
-
-name: Verible
+name: Verible RTL Lint
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,25 +15,60 @@ jobs:
   verible:
     name: Verible RTL lint
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Lint Verilog
-        #? chipsalliance: GitHub organization hosting the action.
-        #? verible-linter-action: Actions repository name.
-        #? @main: Uses the version of the action referenced by the branch.
-        uses: chipsalliance/verible-linter-action@main
-        with:
-          paths: |
-            ./rtl
-          extensions: |
-            .v
-          #? extra_args: Passes additional command-line arguments.
-          extra_args: "--rules_config_search"
-          verible_version: "v0.0-4296-g0f262651"
-          #? fail_on_error: Controls whether lint findings cause the action to fail.
-          fail_on_error: true
-          #? suggest_fixes: Controls whether the action posts suggested code fixes in pull-requests.
-          suggest_fixes: false
+      - name: Install Verible
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="v0.0-4296-g0f262651"
+          BASE="https://github.com/chipsalliance/verible/releases/download/${VERSION}"
+
+          # Find the exact Linux x86_64 asset published for this release.
+          curl -fsSL \
+            "https://api.github.com/repos/chipsalliance/verible/releases/tags/${VERSION}" \
+            -o /tmp/release.json
+
+          ASSET_URL="$(python3 -c '
+          import json
+          d = json.load(open("/tmp/release.json"))
+          assets = [a["browser_download_url"] for a in d["assets"]
+                    if "linux-static-x86_64" in a["name"]
+                    and a["name"].endswith(".tar.gz")]
+          if not assets:
+              raise SystemExit("No matching Linux x86_64 archive found")
+          print(assets[0])
+          ')"
+
+          curl -fsSL "$ASSET_URL" -o /tmp/verible.tar.gz
+          mkdir -p /tmp/verible
+          tar -xzf /tmp/verible.tar.gz -C /tmp/verible
+
+          LINTER="$(find /tmp/verible -type f \
+            -name verible-verilog-lint -print -quit)"
+          test -n "$LINTER"
+          sudo install "$LINTER" /usr/local/bin/verible-verilog-lint
+
+      - name: Check Verible version
+        run: verible-verilog-lint --version
+
+      - name: Lint RTL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t files < <(
+            find rtl -type f \( -name '*.v' -o -name '*.sv' \) | sort
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Verilog/SystemVerilog files found under rtl/"
+            exit 1
+          fi
+
+          verible-verilog-lint "${files[@]}"
