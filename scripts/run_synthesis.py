@@ -3,21 +3,20 @@
 
 #* ======= Libraries =======
 # ------- Native. -------
-from dataclasses import dataclass
+import os
 #? re: Pattern Match | Noneing Engine, it lets search for patterns.
 import re
-from re import Match
 #? shutil: Shell Utilities, provides high-level filesystem operations.
 import shutil
 #? subprocess: Runs external command-line programs.
 import subprocess
-from subprocess import CompletedProcess
+
+from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    List
-)
+from re import Match
+from subprocess import CompletedProcess
+from typing import Any
+
 
 #* ======= Config Vivado Runner Dataclass =======
 @dataclass(frozen = True)
@@ -28,7 +27,8 @@ class ConfigSynthesisRunner:
     scripts_dir_path: Path
     tcl_script_path: Path
     readme_file_path: Path
-    default_vivado_path: Path #TODO FH
+
+    default_vivado_path: Path 
 
 #* ======= Vivado Runner Class =======
 class SynthesisRunner:
@@ -41,17 +41,56 @@ class SynthesisRunner:
     def _locate_vivado_executable(
             self
     ) -> Path:
-        #TODO Implement a vivado executable search.
+        # ------- Layer-wise Search of Vivado Executable. -------
+        # Finds out the OS.
+        #? os.name == "nt": Checks if the OS is Windows.
+        if (os.name == "nt"): vivado_bin_relative_path = Path("bin/vivado.bat")
+        else: vivado_bin_relative_path = Path("bin/vivado")
+
+        # Searches in system environment variables.
+        vivado_env_dir: str | None = os.environ.get("XILINX_VIVADO", None)
+        if vivado_env_dir:
+            # Combines the folder path with the executable path.
+            vivado_path: Path = Path(vivado_env_dir) / vivado_bin_relative_path
+
+            if vivado_path.is_file(): return vivado_path
+
+        # Searches in system 'PATH'.
+        vivado_system_path: str | None = shutil.which(cmd = "vivado")
+        if vivado_system_path: return Path(vivado_system_path)
+
+        # Searches in common installation directories.
+        vivado_common_installation_dirs: list[Path] = [
+            # Windows.
+            Path("C:/Xilinx/Vivado"),
+            Path("C:/Vivado"),
+
+            # Linux.
+            Path("/opt/Xilinx/Vivado"),
+            Path("/tools/Xilinx/Vivado")    
+        ]
+
+        for dir in vivado_common_installation_dirs:
+            if (dir.exists() and dir.is_dir()):
+                #? .iterdir(): Yields all files and folders inside this directory.
+                # Looks inside the directory for version folders.
+                for version_dir in dir.iterdir():
+                    if version_dir.is_dir():
+                        vivado_path: Path = version_dir / vivado_bin_relative_path
+
+                        if vivado_path.is_file(): return vivado_path
+
+        # Falls back to the configured default path.
         return self._cfg.default_vivado_path
 
     def _parse_reports(
             self
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         # Initializes the report paths and the metrics dictionary.
         utilization_report_file_path: Path = self._cfg.build_synth_dir_path / "utilization.rpt"
         timing_report_file_path: Path = self._cfg.build_synth_dir_path / "timing.rpt"
 
-        metrics: Dict[str, Any] = {
+        metrics: dict[str, Any] = {
             "lut_used": 0,
             "lut_util": 0.0, 
 
@@ -78,8 +117,8 @@ class SynthesisRunner:
 
             #? re.search(): Scans the entire text looking for first place where the pattern matches.
             # Regex for Slice LUTs: | Slice LUTs* | <used> | ... | <util> |
-            lut_match: Match | None = re.search( #TODO ATH
-                pattern = r"\|\s*Slice LUTs\s*\*?\s*\|\s*(\d+)\s*\|.*?\|\s*([\d\.]+)\s*\|",
+            lut_match: Match | None = re.search( 
+                pattern = r"\|\s*Slice LUTs\s*\*?\s*\|\s*(\d+)\s*\|(?:.*?\|){3}\s*([\d\.]+)\s*\|",
                 string = text
             )
             if lut_match:
@@ -91,7 +130,7 @@ class SynthesisRunner:
                 metrics["lut_util"] = float(lut_match.group(2))
 
             # Regex for Flip Flops: | Register as Flip Flop | <used> | ... | <util> |
-            ff_match: Match | None = re.search( #TODO ATH
+            ff_match: Match | None = re.search( 
                 pattern = r"\|\s*(?:Register as Flip Flop|Slice Registers)\s*\|\s*(\d+)\s*\|.*?\|\s*([\d\.]+)\s*\|",
                 string = text
             )
@@ -100,7 +139,7 @@ class SynthesisRunner:
                 metrics["ff_util"] = float(ff_match.group(2))
 
             # Regex for DSP48 slices: | DSPs | <used> | ... | <util> |
-            dsp_match: Match | None = re.search( #TODO ATH
+            dsp_match: Match | None = re.search( 
                 pattern = r"\|\s*DSPs?\s*\|\s*(\d+)\s*\|.*?\|\s*([\d\.]+)\s*\|",
                 string = text
             )
@@ -120,7 +159,7 @@ class SynthesisRunner:
             #? re.IGNORECASE: Makes the search case-insensitive.
             # Worst Negative Slack (WNS).
             wns_match: Match | None = re.search(
-                pattern = r"Worst Negative Slack \(WNS\):\s*(-?[\d\.]+)\s*ns", 
+                pattern = r"Setup\s*:\s*\d+\s*Failing Endpoints,\s*Worst Slack\s*([-]?[\d\.]+)ns", 
                 string = text, 
                 flags = re.IGNORECASE    
             )
@@ -146,7 +185,7 @@ class SynthesisRunner:
 
     def _update_readme(
         self,
-        metrics: Dict[str, Any]
+        metrics: dict[str, Any]
     ) -> None:
         if not self._cfg.readme_file_path.exists():
             print(f"Warning: '{self._cfg.readme_file_path}' not found. Skipping README update.")
@@ -198,7 +237,7 @@ class SynthesisRunner:
 
     def _print_metrics_summary(
         self,
-        metrics: Dict[str, Any]
+        metrics: dict[str, Any]
     ) -> None:
         timing_str = "TIMING CLOSED (PASS)" if metrics.get("timing_met") else "TIMING VIOLATION (FAIL)"
         print()
@@ -206,7 +245,7 @@ class SynthesisRunner:
         print(f"  - Slice LUTs:          {metrics.get('lut_used', 0):>6}  /  20,800  ({metrics.get('lut_util', 0.0):>5.2f} %)")
         print(f"  - Flip-Flops:          {metrics.get('ff_used', 0):>6}  /  41,600  ({metrics.get('ff_util', 0.0):>5.2f} %)")
         print(f"  - DSP48 Slices:        {metrics.get('dsp_used', 0):>6}  /      90  ({metrics.get('dsp_util', 0.0):>5.2f} %)")
-        print(f"  - Target Clock:        100.00 MHz (10.000 ns)")
+        print("  - Target Clock:        100.00 MHz (10.000 ns)")
         print(f"  - Worst Negative Slack: {metrics.get('wns', 0.0):>+6.3f} ns")
         print(f"  - Achieved Fmax:       {metrics.get('f_max_mhz', 0.0):>6.2f} MHz  -->  {timing_str}")
 
@@ -214,7 +253,7 @@ class SynthesisRunner:
         vivado_path: Path = self._locate_vivado_executable()
 
         # Vivado batch mode command.
-        cmd: List[Any] = [
+        cmd: list[Any] = [
             vivado_path,
             "-mode", "batch",
             "-source", str(self._cfg.tcl_script_path),
@@ -223,10 +262,12 @@ class SynthesisRunner:
         ]
 
         # Executes Vivado.
+        #TODO AC
         _: CompletedProcess = subprocess.run( 
             cmd,
             cwd = self._cfg.main_dir_path,
             capture_output = True,
+            check = False,
             text = True
         )
 
@@ -253,7 +294,7 @@ class SynthesisRunner:
                 )
 
         # Parses reports.
-        metrics: Dict[str, Any] = self._parse_reports()
+        metrics: dict[str, Any] = self._parse_reports()
 
         # Prints terminal summary.
         self._print_metrics_summary(metrics = metrics)
