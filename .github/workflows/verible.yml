@@ -1,0 +1,39 @@
+
+#* ======= Verilog Linting =======
+
+name: Verible
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verible:
+    name: Verible RTL lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Lint Verilog
+        #? chipsalliance: GitHub organization hosting the action.
+        #? verible-linter-action: Actions repository name.
+        #? @main: Uses the version of the action referenced by the branch.
+        uses: chipsalliance/verible-linter-action@main
+        with:
+          paths: |
+            ./rtl
+          extensions: |
+            .v
+          #? extra_args: Passes additional command-line arguments.
+          extra_args: "--rules_config_search"
+          verible_version: "v0.0-4296-g0f262651"
+          #? fail_on_error: Controls whether lint findings cause the action to fail.
+          fail_on_error: true
+          #? suggest_fixes: Controls whether the action posts suggested code fixes in pull-requests.
+          suggest_fixes: false
