@@ -18,8 +18,8 @@
 /test.py
 
 # Extra Documents.
-/docs/Aircraft_Engine_Project_Plan.pdf
-/docs/Aircraft_Engine_Research_Plan.pdf
+/docs*
+!/docs/diagrams
 
 # Extra Files.
 /tb/config.json
