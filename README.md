@@ -61,7 +61,7 @@ The engine dynamics track key physical states—**Rotational Speed ($N$)**, **Co
   * `calculate_target_values.v`: Pipelined calculation of $N_{\text{target}}$, $P_{\text{target}}$ (including $N^2$ squaring stage), and $T_{\text{target}}$.
   * `calculate_derivatives.v`: Pipelined rate calculation utilizing pre-calculated inverse time constants.
   * `calculate_next_steps.v`: First-order forward Euler integration accumulator with overflow protection and physical safeguard clamping.
-  * `register_interface.v`: Memory-mapped bus controller handling control flags, telemetry readouts, and fault injection triggers.
+  * `axi4_lite.v`: Memory-mapped bus controller handling control flags, telemetry readouts, and fault injection triggers.
   * `aircraft_engine_simulator_top.v`: Unified top-level entity integrating math blocks, register interface, and supervisory safety FSM.
 
 * **Phase 5: Co-Simulation & Verification (Current Progress)**
@@ -134,7 +134,7 @@ The simulator exposes a standard 32-bit bus interface:
 │   ├── calculate_target_values.v                 # Pipelined target state evaluator
 │   ├── calculate_derivatives.v                   # Division-free derivative stage
 │   ├── calculate_next_steps.v                    # Euler integrator with saturation protection
-│   ├── register_interface.v                      # Memory-mapped bus interface (CSR)
+│   ├── axi4_lite.v                      # Memory-mapped bus interface (CSR)
 │   └── aircraft_engine_simulator_top.v           # Top-level entity with 4-state supervisory FSM
 ├── tb_cocotb/
 │   └── test_engine.py                            # Object-oriented Cocotb verification harness
