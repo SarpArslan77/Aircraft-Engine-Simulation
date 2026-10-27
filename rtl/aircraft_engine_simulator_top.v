@@ -135,10 +135,10 @@ module aircraft_engine_simulator_top #(
     );
 
     // Register Interface (RI).
-    register_interface #(
+    axi4_lite #(
         // Parameters.
         .TOTAL_BIT_WIDTH(TOTAL_BIT_WIDTH)
-    ) inst_register_interface (
+    ) inst_axi4_lite (
         // Inputs.
         .clk(clk), .rst(rst),
 
