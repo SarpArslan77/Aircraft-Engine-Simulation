@@ -114,7 +114,7 @@ if __name__ == "__main__":
         RTL_DIR_PATH / "calculate_target_values.v",
         RTL_DIR_PATH / "calculate_derivatives.v",
         RTL_DIR_PATH / "calculate_next_steps.v",
-        RTL_DIR_PATH / "register_interface.v",
+        RTL_DIR_PATH / "axi4_lite.v",
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
