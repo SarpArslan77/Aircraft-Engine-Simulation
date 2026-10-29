@@ -6,63 +6,91 @@
 //* ======= Aircraft Engine Simulator Top Module =======
 module aircraft_engine_simulator_top #(
     // ------- Parameters. -------
-    // Frequencies.
+    // -> Frequencies.
     parameter SYSTEM_CLK_FREQ = 100_000_000, // [Hz].
     parameter TARGET_CLK_FREQ = 1_000,
 
-    // Data Representation.
+    // -> Data Representation.
     parameter INTEGER_BIT_WIDTH = 16,
     parameter FRACTIONAL_BIT_WIDTH = 16,
 
-    // Ambient Conditions.
+    // -> Ambient Conditions.
     parameter signed [31:0] AMBIENT_PRESSURE = 0,
     parameter signed [31:0] AMBIENT_TEMPERATURE = 0,
 
-    // Gains.
+    // -> Gains.
     parameter signed [31:0] SPEED_GAIN_COEFF = 0,
     parameter signed [31:0] COMPRESSOR_PRESSURE_GAIN = 0,
     parameter signed [31:0] COMBUSTION_HEAT_GAIN = 0,
     parameter signed [31:0] MASS_OVERFLOW_COOLING_GAIN = 0,
 
-    // Time Constants (Inertia).
+    // -> Time Constants (Inertia).
     parameter signed [31:0] PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST = 0,
     parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = 0,
 
-    // Engine Limits.
+    // -> Engine Limits.
     parameter signed [31:0] MAX_ROTATIONAL_SPEED = 0,
     parameter signed [31:0] MAX_COMPRESSOR_TEMPERATURE = 0
 )(
     // ------- Inputs. -------
-    // System Signals.
-    input wire clk, rst,
+    // -> System Signals.
+    input wire s_axi_aclk, s_axi_aresetn,
 
-    // Bus Signals.
-    input wire [31:0] bus_addr,
-    input wire [31:0] bus_wdata,
-    input wire bus_write_en,
-    input wire bus_read_en,
+    // -> AXI4-Lite Slave Channels.
+    // AW.
+    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_awaddr,
+    input wire [2:0] s_axi_awprot,
+    input wire s_axi_awvalid,
+
+    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_wdata,
+    input wire [3:0] s_axi_wstrb,
+    input wire s_axi_wvalid,
+
+    input wire s_axi_bready,
+
+    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_araddr,
+    input wire [2:0] s_axi_arprot,
+    input wire s_axi_arvalid,
+
+    input wire s_axi_rready,
 
     // ------- Outputs. -------
-    // Currents.
-    output wire signed [31:0] current_fuel_flow,
-    output wire signed [31:0] current_speed, current_pressure, current_temperature,
+    // -> Currents.
+    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_fuel_flow,
+    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_speed, current_pressure, current_temperature,
 
-    // Bus Signals.
-    output wire [31:0] bus_rdata,
+    // -> AXI4-Lite Slave Channels.
+    // AW.
+    output wire s_axi_awready,
 
-    // Engine Controls.
+    // W.
+    output wire s_axi_wready,
+
+    // B.
+    output wire [1:0] s_axi_bresp,
+    output wire s_axi_bvalid,
+
+    // AR.
+    output wire s_axi_arready,
+
+    // R.
+    output wire s_axi_rvalid,
+    output wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_rdata,
+    output wire [1:0] s_axi_rresp,
+
+    // -> Engine Controls.
     output wire fault_compressor_stall,
     output wire fault_sensor_corruption,
 
-    // Flags.
+    // -> Flags.
     output wire is_engine_broken
 );
     // ------- Local Parameters. -------
-    // Data Representation.
+    // -> Data Representation.
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
 
-    // States.
+    // -> States.
     localparam TOTAL_STATE_COUNT = 4;
     localparam STATE_IDLE = 0;
     localparam STATE_RUNNING = 1;
@@ -70,48 +98,51 @@ module aircraft_engine_simulator_top #(
     localparam STATE_SHUTDOWN = 3;
 
     // ------- Registers. ------
-    // Currents.
+    // -> Currents.
     reg signed [TOTAL_BIT_WIDTH-1:0] current_fuel_flow_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] current_speed_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] current_pressure_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] current_temperature_r;
 
-    // Flags.
+    // -> Flag.
     reg is_engine_broken_r;
 
-    // States.
+    // -> States.
     reg [$clog2(TOTAL_STATE_COUNT+1)-1:0] current_state;
     reg [$clog2(TOTAL_STATE_COUNT+1)-1:0] next_state;
 
-    // Gains.
+    // -> Gains.
     reg signed [TOTAL_BIT_WIDTH-1:0] speed_gain_coeff_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] compressor_pressure_gain_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] combustion_heat_gain_r;
     reg signed [TOTAL_BIT_WIDTH-1:0] mass_overflow_cooling_gain_r;
 
     // ------- Wires. -------
-    // CP.
+    // -> CP.
     wire clk_en_1ms;
 
-    // RI.
+    // -> RI.
     wire start_engine;
     wire restart_engine;
     wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_command;
 
-    // TC.
+    // -> TC.
     wire signed [TOTAL_BIT_WIDTH-1:0] target_speed;
     wire signed [TOTAL_BIT_WIDTH-1:0] target_pressure;
     wire signed [TOTAL_BIT_WIDTH-1:0] target_temperature;
 
-    // DC.
+    // -> DC.
     wire signed [TOTAL_BIT_WIDTH-1:0] d_speed;
     wire signed [TOTAL_BIT_WIDTH-1:0] d_pressure;
     wire signed [TOTAL_BIT_WIDTH-1:0] d_temperature;
 
-    // NSC.
+    // -> NSC.
     wire signed [TOTAL_BIT_WIDTH-1:0] next_speed;
     wire signed [TOTAL_BIT_WIDTH-1:0] next_pressure;
     wire signed [TOTAL_BIT_WIDTH-1:0] next_temperature;
+
+    // -> AXI4-Lite.
+    wire clk, rst;
 
     // ------- Assignments. -------
     assign current_fuel_flow = current_fuel_flow_r;
@@ -120,8 +151,11 @@ module aircraft_engine_simulator_top #(
     assign current_temperature = current_temperature_r;
     assign is_engine_broken = is_engine_broken_r;
 
+    assign clk = s_axi_aclk;
+    assign rst = !s_axi_aresetn;
+
     // ------- Modules. -------
-    // Clock Prescaler (CP).
+    // -> Clock Prescaler (CP).
     clock_prescaler #(
         // Parameters.
         .SYSTEM_CLK_FREQ(SYSTEM_CLK_FREQ),
@@ -134,41 +168,74 @@ module aircraft_engine_simulator_top #(
         .clk_en_1ms(clk_en_1ms)
     );
 
-    // Register Interface (RI).
+    // -> Register Interface (RI).
     axi4_lite #(
-        // Parameters.
+        // Parameter.
         .TOTAL_BIT_WIDTH(TOTAL_BIT_WIDTH)
     ) inst_axi4_lite (
         // Inputs.
-        .clk(clk), .rst(rst),
+        // ~> System Signals.
+        .s_axi_aclk(s_axi_aclk), .s_axi_aresetn(s_axi_aresetn),
 
-        // Bus Signals.
-        .bus_addr(bus_addr),
-        .bus_wdata(bus_wdata),
-        .bus_write_en(bus_write_en),
-        .bus_read_en(bus_read_en),
+        // ~> AXI4-Lite Slave Channels.
+        //      - Write Address (AW).
+        .s_axi_awaddr(s_axi_awaddr),
+        .s_axi_awprot(s_axi_awprot),
+        .s_axi_awvalid(s_axi_awvalid),
 
-        // Dependents.
-        .current_speed(current_speed_r),
-        .current_pressure(current_pressure_r),
-        .current_temperature(current_temperature_r),
-        .is_engine_broken(is_engine_broken_r),
+        //      - Write Data (W).
+        .s_axi_wdata(s_axi_wdata),
+        .s_axi_wstrb(s_axi_wstrb),
+        .s_axi_wvalid(s_axi_wvalid),
+
+        //      - Write Response (B).
+        .s_axi_bready(s_axi_bready),
+
+        //      - Read Address (AR).
+        .s_axi_araddr(s_axi_araddr),
+        .s_axi_arprot(s_axi_arprot),
+        .s_axi_arvalid(s_axi_arvalid),
+
+        //      - Read Data (R).
+        .s_axi_rready(s_axi_rready),
+
+        // ~> Engine Telemetrics.
+        .current_speed(current_speed),
+        .current_pressure(current_pressure),
+        .current_temperature(current_temperature),
+        .is_engine_broken(is_engine_broken),
 
         // Outputs.
-        // Bus Signals.
-        .bus_rdata(bus_rdata),
+        // ~> AXI4-Lite Slave Channels.
+        //      - AW.
+        .s_axi_awready(s_axi_awready),
 
-        // Engine Controls.
+        //      - W.
+        .s_axi_wready(s_axi_wready),
+
+        //      - B.
+        .s_axi_bresp(s_axi_bresp),
+        .s_axi_bvalid(s_axi_bvalid),
+
+        //      - AR.
+        .s_axi_arready(s_axi_arready),
+
+        //      - R.
+        .s_axi_rvalid(s_axi_rvalid),
+        .s_axi_rdata(s_axi_rdata),
+        .s_axi_rresp(s_axi_rresp),
+
+        // ~> Engine Controls.
         .start_engine(start_engine),
         .restart_engine(restart_engine),
-
+        
         .fuel_flow_command(fuel_flow_command),
 
         .fault_compressor_stall(fault_compressor_stall),
         .fault_sensor_corruption(fault_sensor_corruption)
     );
 
-    // Target Calculations (TC).
+    // -> Target Calculations (TC).
     calculate_target_values #(
         // Parameters.
         // Data Representation.
@@ -199,7 +266,7 @@ module aircraft_engine_simulator_top #(
         .target_exhaust_gas_temperature(target_temperature)
     );
 
-    // Derivative Calculation (DC).
+    // -> Derivative Calculation (DC).
     calculate_derivatives #(
         // Parameters.
         // Data Representation.
@@ -230,8 +297,7 @@ module aircraft_engine_simulator_top #(
         .d_exhaust_gas_temperature(d_temperature)
     );
 
-    // Next Step Calculation (NSC).
-    // Derivative Calculation (DC).
+    // -> Next Step Calculation (NSC).
     calculate_next_steps #(
         // Parameters.
         // Data Representation.
