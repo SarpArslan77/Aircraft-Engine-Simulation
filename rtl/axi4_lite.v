@@ -1,4 +1,3 @@
-
 //* axi4_lite.v
 
 //* The 'VALID' / 'READY' Handshake:
@@ -11,6 +10,7 @@
 
 //* ======= Register Interface for the Aircraft Engine =======
 module axi4_lite #(
+    // ------- Parameter. -------
     parameter TOTAL_BIT_WIDTH = 32
 )(
     // ------- Inputs. -------
@@ -35,6 +35,7 @@ module axi4_lite #(
     //? s_axi_wstrb: Byte-enable qualifiers:
     //      -> wstrb[0] = 1: Write byte 0 (wdata[7:0]).
     //      -> wstrb[1] = 1: Write byte 1 (wdata[15:8]).
+    
     //      -> wstrb[2] = 1: Write byte 2 (wdata[23:16]).
     //      -> wstrb[3] = 1: Write byte 3 (wdata[31:24]).
     input wire [3:0] s_axi_wstrb,
@@ -58,7 +59,7 @@ module axi4_lite #(
     //? s_axi_rready: Indicates the master is ready to accept the incoming read data.
     input wire s_axi_rready,
 
-    // Engine Parameters.
+    // Engine Telemetrics.
     input wire signed [TOTAL_BIT_WIDTH-1:0] current_speed,
     input wire signed [TOTAL_BIT_WIDTH-1:0] current_pressure,
     input wire signed [TOTAL_BIT_WIDTH-1:0] current_temperature,
@@ -100,7 +101,7 @@ module axi4_lite #(
     output wire start_engine,
     output wire restart_engine,
 
-    output wire signed [31:0] fuel_flow_command,
+    output wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_command,
 
     output wire fault_compressor_stall,
     output wire fault_sensor_corruption
@@ -188,9 +189,8 @@ module axi4_lite #(
                     s_axi_wready <= 0;
                 end
             end
-
             // Slave is waiting for a response from master.
-            if (s_axi_bvalid) begin
+            else begin
                 s_axi_awready <= 0;
                 s_axi_wready <= 0;
 
@@ -202,6 +202,57 @@ module axi4_lite #(
 
     // ------- Read Path. -------
     always @(posedge s_axi_aclk) begin
-        
+        if (!s_axi_aresetn) begin
+            s_axi_arready <= 0;
+            s_axi_rvalid <= 0;
+
+            s_axi_rdata <= 0;
+        end
+        else begin
+            // Slave is currently not holding unread data for the master.
+            if (!s_axi_rvalid) begin
+                // Checks if the master is requesting a read 's_axi_arvalid'.
+                if (s_axi_arvalid) begin
+                    // Accepts the read address.
+                    s_axi_arready <= 1;
+                    s_axi_rresp <= 2'b00;
+
+                    case (s_axi_araddr[7:0])
+                        ADDR_CONTROL: s_axi_rdata <= control_reg;
+
+                        ADDR_STATUS: s_axi_rdata <= { { (TOTAL_BIT_WIDTH-1){1'b0} }, is_engine_broken };
+
+                        ADDR_FUEL_FLOW_COMMAND: s_axi_rdata <= fuel_flow_command_reg;
+
+                        ADDR_SPEED: s_axi_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_speed;
+
+                        ADDR_PRESSURE: s_axi_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_pressure;
+
+                        ADDR_TEMPERATURE: s_axi_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_temperature;
+
+                        ADDR_FAULT_INJECTION: s_axi_rdata <= fault_injection_reg;
+
+                        default: begin
+                            s_axi_rresp <= 2'b10;
+                            s_axi_rdata <= 32'hDEAD_BEEF;
+                        end
+                    endcase
+
+                    // Data is presented to the master on the next cycle.
+                    s_axi_rvalid <= 1;
+                end
+                else begin
+                    s_axi_arready <= 0;
+                end
+            end
+            // Holds data for the master.
+            else begin
+                // Slave is busy returning data.
+                s_axi_arready <= 0;
+
+                // Checks if the master acknowledges receipt, if yes, signals the transaction is complete.
+                if (s_axi_rready) s_axi_rvalid <= 0;
+            end
+        end
     end
 endmodule
