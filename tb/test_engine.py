@@ -32,7 +32,7 @@ from cocotb.handle import SimHandleBase
 #   - rising: Counts rising edges (True: 0 -> 1 & False: 1 -> 0).
 from cocotb.triggers import ClockCycles, RisingEdge
 #TODO AC
-from cocotbext.axi import AxiLiteBus
+from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 from numpy import int64
 from numpy.typing import NDArray
 from pandas import DataFrame
@@ -95,86 +95,19 @@ class EngineTester:
         self._cfg: ConfigEngineTester = config_engine_tester
 
     #? async: Defines a coroutine function.
-    async def _bus_write(
-            self,
-            dut: SimHandleBase,
-            addr: int,
-            data: int
-    ) -> None:
-        """
-        Executes a synchronous single-cycle write transaction over the custom register bus.
-
-        Drives the target memory address and 32-bit data payload onto the bus, asserts the
-        write enable flag ('bus_write_en') on a rising clock edge, and de-asserts it on the
-        subsequent edge to guarantee deterministic register latching.
-
-        Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
-            addr (int): Target register memory-mapped byte address offset.
-            data (int): 32-bit data word (raw signed or unsigned integer) to write into the register.
-
-        Returns:
-            None
-        """
-
-        #? await: Pauses execution of the current coroutine.
-        await RisingEdge(dut.s_axi_aclk)
-        dut.bus_addr.value = addr
-        dut.bus_wdata.value = data
-        dut.bus_write_en.value = 1
-        dut.bus_read_en.value = 0
-
-        await RisingEdge(dut.s_axi_aclk)
-        dut.bus_write_en.value = 0
-
-    async def _bus_read(
-            self,
-            dut: SimHandleBase,
-            addr: int
-    ) -> int:
-        """
-        Executes a synchronous two-cycle read transaction over the custom register bus.
-
-        Asserts the target memory address and the read enable strobe ('bus_read_en') on a
-        rising clock edge, de-asserts the strobe on the next edge, and samples the resulting
-        read data payload ('bus_rdata') after one clock cycle of bus read latency.
-
-        Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
-            addr (int): Target register memory-mapped byte address offset to read from.
-
-        Returns:
-            int: The 32-bit raw integer data word returned on 'bus_rdata'.
-        """
-
-        await RisingEdge(dut.s_axi_aclk)
-        dut.bus_addr.value = addr
-        dut.bus_read_en.value = 1
-        dut.bus_write_en.value = 0
-
-        await RisingEdge(dut.s_axi_aclk)
-        dut.bus_read_en.value = 0
-
-        # Reads the data returned on the next cycle.
-        await RisingEdge(dut.s_axi_aclk)
-
-        return int(dut.bus_rdata.value)
-
     async def _perform_synchronous_reset(
             self,
-            dut: SimHandleBase
+            dut: SimHandleBase,
+            axil_master: AxiLiteMaster
     ) -> None:
         # Resets the device.
-        dut.s_axi_aresetn.value = 1
-        dut.bus_write_en.value = 0
-        dut.bus_read_en.value = 0
-        dut.bus_addr.value = 0
-        dut.bus_wdata.value = 0
+        dut.s_axi_aresetn.value = 0
         await ClockCycles(
             signal = dut.s_axi_aclk,
             num_cycles = 5
         )
-        dut.s_axi_aresetn.value = 0
+
+        dut.s_axi_aresetn.value = 1
         await ClockCycles(
             signal = dut.s_axi_aclk,
             num_cycles = 5
@@ -184,22 +117,28 @@ class EngineTester:
         dut._log.info(msg = "Reset complete. Verifying initial status...")
 
         # Reads the status register (0: engine healthy).
-        status: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_status
+        status_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_status,
+            length = 4    
         )
-        assert (status == 0), f"Expected status '0' after reset, got {status}"
+        status_s16: int = int.from_bytes(
+            status_bytes,
+            "little",
+            signed = True
+        )
+        
+        assert (status_s16 == 0), f"Expected status '0' after reset, got {status_s16}"
         dut._log.info(msg = "Status register verified: 0 (Normal)")
 
     async def _start_engine(
             self,
+            axil_master: AxiLiteMaster,
             dut: SimHandleBase
     ) -> None:
         # Starts the engine.
-        await self._bus_write(
-            dut = dut,
-            addr = self._cfg.addr_control,
-            data = 1
+        await axil_master.write(
+            address = self._cfg.addr_control,
+            data = 1  
         )
         dut._log.info(msg = "Engine start commanded!")
 
@@ -245,29 +184,55 @@ class EngineTester:
             Clock(dut.s_axi_aclk, 10, "ns").start()
         )
 
+        # Declares the AXI4-Lite module.
+        axil_bus = AxiLiteBus.from_prefix(
+            entity = dut,
+            prefix = "s_axi"
+        )
+        
+        axil_master = AxiLiteMaster(
+            bus = axil_bus,
+            clock = dut.s_axi_aclk,
+            reset = dut.s_axi_aresetn,
+            reset_active_level = False
+        )
+
         # Resets the device.
-        await self._perform_synchronous_reset(dut = dut)
+        await self._perform_synchronous_reset(
+            dut = dut,
+            axil_master = axil_master    
+        )
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
-        fuel_command_b16: int = 10 << 16 #TODO FTH
-        await self._bus_write(
-            dut = dut,
-            addr = self._cfg.addr_fuel_flow_command,
-            data = fuel_command_b16
+        fuel_command_s16: int = 10 << 16 #TODO FTH
+        fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
+            4,
+            "little",
+            signed = True
+        )
+
+        await axil_master.write(
+            address = self._cfg.addr_fuel_flow_command,
+            data = fuel_command_bytes    
         )
 
         # Reads it back to verify, that the register stored it.
-        read_fuel_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_fuel_flow_command
+        read_fuel_value_bytes: bytes = axil_master.read(
+            address = self._cfg.addr_fuel_flow_command,
+            length = 4
         )
-        assert (read_fuel_value == fuel_command_b16), f"Fuel mismatch! Wrote {fuel_command_b16}, got {read_fuel_value}"
-        dut._log.info(msg = f"Fuel command register verified: {read_fuel_value >> 16} kg/h")
+        read_fuel_value_s16: int = int.from_bytes(
+            read_fuel_value_bytes,
+            "little",
+            signed = True    
+        )
+
+        assert (read_fuel_value_s16 == fuel_command_s16), f"Fuel mismatch! Wrote {fuel_command_s16}, got {read_fuel_value_s16}"
+        dut._log.info(msg = f"Fuel command register verified: {read_fuel_value_s16 >> 16} kg/h")
 
         # Starts the engine (a.k.a. sets the bit '0' in control register).
-        await self._bus_write(
-            dut = dut,
-            addr = self._cfg.addr_control,
+        await axil_master.write(
+            address = self._cfg.addr_control,
             data = 1
         )
         dut._log.info(msg = "Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
@@ -277,23 +242,40 @@ class EngineTester:
             await RisingEdge(dut.clk_en_1ms)
 
         # Reads the data back over the bus.
-        read_speed_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_speed
+        read_speed_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_speed,
+            length = 4    
         )
-        read_pressure_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_pressure
+        read_speed_value_s16: int = int.from_bytes(
+            read_speed_value_bytes,
+            "little",
+            signed = True    
         )
-        read_temperature_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_temperature
+
+        read_pressure_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_pressure,
+            length = 4    
+        )
+        read_pressure_value_s16: int = int.from_bytes(
+            read_pressure_value_bytes,
+            "little",
+            signed = True    
+        )
+
+        read_temperature_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_temperature,
+            length = 4    
+        )
+        read_temperature_value_s16: int = int.from_bytes(
+            read_temperature_value_bytes,
+            "little",
+            signed = True    
         )
 
         # Scales back the read-values to normal intervalls.
-        speed_scaled: float = read_speed_value / (1 << 16)
-        pressure_scaled: float = read_pressure_value / (1 << 16)
-        temperature_scaled: float = read_temperature_value / (1 << 16)
+        speed_scaled: float = read_speed_value_s16 / (1 << 16)
+        pressure_scaled: float = read_pressure_value_s16 / (1 << 16)
+        temperature_scaled: float = read_temperature_value_s16 / (1 << 16)
 
         # Logs the results.
         dut._log.info(f"Read-Data: Speed: {speed_scaled:.2f}, Pressure: {pressure_scaled:.2f} kPa, Temperature: {temperature_scaled} *C")
@@ -309,21 +291,40 @@ class EngineTester:
         cocotb.start_soon(
             Clock(dut.s_axi_aclk, 10, "ns").start()
         )
+
+        # Declares the AXI4-Lite module.
+        axil_bus = AxiLiteBus.from_prefix(
+            entity = dut,
+            prefix = "s_axi"
+        )
+        
+        axil_master = AxiLiteMaster(
+            bus = axil_bus,
+            clock = dut.s_axi_aclk,
+            reset = dut.s_axi_aresetn,
+            reset_active_level = False
+        )
     
         # Resets the device.
-        await self._perform_synchronous_reset(dut = dut)
+        await self._perform_synchronous_reset(
+            dut = dut,
+            axil_master = axil_master    
+        )
 
         # Starts the engine.
-        await self._start_engine(dut = dut)
+        await self._start_engine(
+            axil_master = axil_master,
+            dut = dut
+        )
 
         # Loads the golden reference dataset.
         software_results_df: DataFrame = pd.read_csv(self._cfg.software_results_file_path_str)
 
-        fuel_flow_col: NDArray[int64] = software_results_df["fuel_flow"].values
-        speed_col: NDArray[int64]  = software_results_df["speed"].values
-        pressure_col: NDArray[int64]  = software_results_df["pressure"].values
-        temperature_col: NDArray[int64]  = software_results_df["temperature"].values
-        is_engine_broken_col: NDArray[int64]  = software_results_df["is_engine_broken"].values
+        fuel_flow_col_bytes: NDArray = software_results_df["fuel_flow"].values.tobytes() #TODO What is a type hint for this
+        speed_col_bytes: NDArray  = software_results_df["speed"].values.tobytes()
+        pressure_col_bytes: NDArray  = software_results_df["pressure"].values.tobytes()
+        temperature_col_bytes: NDArray = software_results_df["temperature"].values.tobytes()
+        is_engine_broken_col_bytes: NDArray  = software_results_df["is_engine_broken"].values.tobytes()
 
         total_steps = int(
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
@@ -331,10 +332,9 @@ class EngineTester:
 
         for i in range(total_steps+1):
             # Writes the fuel flow values for the current step.
-            await self._bus_write(
-                dut = dut,
-                addr = self._cfg.addr_fuel_flow_command,
-                data = int(fuel_flow_col[i])
+            await axil_master.write(
+                address = self._cfg.addr_fuel_flow_command,
+                data = fuel_flow_col_bytes[i]
             )
 
             # Advances clock cycles until domain clock pulses.
@@ -344,32 +344,55 @@ class EngineTester:
                     break
 
             # Reads the hardware registers.
-            hardware_speed_result: int64 = await self._bus_read(
-                dut = dut,
-                addr = self._cfg.addr_speed
+            hardware_speed_result_bytes: bytes = await axil_master.read(
+                address = self._cfg.addr_speed,
+                length = 4    
             )
-            hardware_pressure_result: int64 = await self._bus_read(
-                dut = dut,
-                addr = self._cfg.addr_pressure
+            hardware_speed_result_s16: int = int.from_bytes(
+                hardware_speed_result_bytes,
+                "little",
+                signed = True    
             )
-            hardware_temperature_result: int64 = await self._bus_read(
-                dut = dut,
-                addr = self._cfg.addr_temperature
+
+            hardware_pressure_result_bytes: bytes = await axil_master.read(
+                address = self._cfg.addr_pressure,
+                length = 4    
             )
-            hardware_is_engine_broken_result: int64 = await self._bus_read(
-                dut = dut,
-                addr = self._cfg.addr_status
+            hardware_pressure_result_s16: int = int.from_bytes(
+                hardware_pressure_result_bytes,
+                "little",
+                signed = True    
+            )
+
+            hardware_temperature_result_bytes: bytes = await axil_master.read(
+                address = self._cfg.addr_temperature,
+                length = 4    
+            )
+            hardware_temperature_result_s16: int = int.from_bytes(
+                hardware_temperature_result_bytes,
+                "little",
+                signed = True    
+            )
+
+            hardware_is_engine_broken_result_bytes: bytes = await axil_master.read(
+                address = self._cfg.addr_is_engine_broken,
+                length = 4    
+            )
+            hardware_is_engine_broken_result_s16: int = int.from_bytes(
+                hardware_is_engine_broken_result_bytes,
+                "little",
+                signed = True    
             )
 
             # Compares the results.
-            assert (abs(hardware_speed_result - speed_col[i]) < 2), \
-                f"speed: {hardware_speed_result} vs. {speed_col[i]}"
-            assert (abs(hardware_pressure_result - pressure_col[i]) < 2), \
-                f"pressure: {hardware_pressure_result} vs. {pressure_col[i]}"
-            assert (abs(hardware_temperature_result - temperature_col[i]) < 2), \
-                f"temperature: {hardware_temperature_result} vs. {temperature_col[i]}"
-            assert (hardware_is_engine_broken_result == is_engine_broken_col[i]), \
-                f"is_engine_broken: {hardware_is_engine_broken_result} vs. {is_engine_broken_col[i]}"
+            assert (abs(hardware_speed_result_s16 - speed_col_bytes[i]) < 2), \
+                f"speed: {hardware_speed_result_s16} vs. {speed_col_bytes[i]}"
+            assert (abs(hardware_pressure_result_s16 - pressure_col_bytes[i]) < 2), \
+                f"pressure: {hardware_pressure_result_s16} vs. {pressure_col_bytes[i]}"
+            assert (abs(hardware_temperature_result_s16 - temperature_col_bytes[i]) < 2), \
+                f"temperature: {hardware_temperature_result_s16} vs. {temperature_col_bytes[i]}"
+            assert (hardware_is_engine_broken_result_s16 == is_engine_broken_col_bytes[i]), \
+                f"is_engine_broken: {hardware_is_engine_broken_result_s16} vs. {is_engine_broken_col_bytes[i]}"
 
     async def run_compressor_stall_test(
             self,
@@ -381,40 +404,65 @@ class EngineTester:
         )
 
         # Declares the AXI4-Lite module.
-        #TODO
-        #axi4_lite = AxiLiteBus.from
+        axil_bus = AxiLiteBus.from_prefix(
+            entity = dut,
+            prefix = "s_axi"
+        )
+
+        axil_master = AxiLiteMaster(
+            bus = axil_bus,
+            clock = dut.s_axi_aclk,
+            reset = dut.s_axi_aresetn,
+            reset_active_level = False
+        )
         
         # Resets the device.
-        await self._perform_synchronous_reset(dut = dut)
+        await self._perform_synchronous_reset(
+            dut = dut,
+            axil_master = axil_master    
+        )
         
         # Starts the engine.
-        await self._start_engine(dut = dut)
+        await self._start_engine(
+            axil_master = axil_master,
+            dut = dut
+        )
 
         # Writes to fuel command register (90 kg/h in Q16.16 = 90 << 16).
-        fuel_command_q16: int = 90 << 16 #TODO FTH
-        await self._bus_write(
-            dut = dut,
-            addr = self._cfg.addr_fuel_flow_command,
-            data = fuel_command_q16
+        fuel_command_s16: int = 90 << 16 #TODO FTH
+        fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
+            4,
+            "little",
+            signed = True
+        )
+
+        await axil_master.write(
+            address = self._cfg.addr_fuel_flow_command,
+            data = fuel_command_bytes
         )
         
         # Reads it back to verify, that the register stored it.
-        read_fuel_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_fuel_flow_command
+        read_fuel_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_fuel_flow_command,
+            length = 4
         )
-        assert (read_fuel_value == fuel_command_q16), f"Fuel mismatch! Wrote {fuel_command_q16}, got {read_fuel_value}"
-        dut._log.info(msg = f"Fuel command register verified: {read_fuel_value >> 16} kg/h")
+        read_fuel_value_s16: int = int.from_bytes(
+            read_fuel_value_bytes,
+            "little",
+            signed = True
+        )
+
+        assert (read_fuel_value_s16 == fuel_command_s16), f"Fuel mismatch! Wrote {fuel_command_s16}, got {read_fuel_value_s16}"
+        dut._log.info(msg = f"Fuel command register verified: {read_fuel_value_s16 >> 16} kg/h")
 
         # Waits for Euoler integration cycles.
         for _ in range(500): #TODO FTH
             await RisingEdge(dut.clk_en_1ms)
 
         # Injects the fault.
-        await self._bus_write(
-            dut = dut,
-            addr = self._cfg.addr_fault_injection,
-            data = 1
+        await axil_master.write(
+            address = self._cfg.addr_fault_injection,
+            data = 1    
         )
 
         # Waits for the temperature to raise and engine to break.
@@ -422,11 +470,16 @@ class EngineTester:
             await RisingEdge(dut.clk_en_1ms)
 
         # Reads the temperature.
-        read_temperature_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_temperature
+        read_temperature_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_temperature,
+            length = 4
         )
-        read_temperature_value_scaled: int = (read_temperature_value >> 16) #TODO FTH
+        read_temperature_value_s16: int = int.from_bytes(
+            read_temperature_value_bytes,
+            "little",
+            signed = True
+        )
+        read_temperature_value_scaled: int = (read_temperature_value_s16 >> 16) #TODO FTH
 
         # Checks red-temperature value is greater then thermal limit.
         assert (read_temperature_value_scaled > self._cfg.max_compressor_temperature), \
@@ -434,15 +487,20 @@ class EngineTester:
         dut._log.info(msg = f"Thermal limit reached: {read_temperature_value_scaled}")
 
         # Reads the engine status.
-        read_engine_status_value: int = await self._bus_read(
-            dut = dut,
-            addr = self._cfg.addr_status
+        read_engine_status_value_bytes: bytes = await axil_master.read(
+            address = self._cfg.addr_status,
+            length = 4    
+        )
+        read_engine_status_value_s16: int = int.from_bytes(
+            read_engine_status_value_bytes,
+            "little",
+            signed = True    
         )
 
         # Checks red-status value is equals to a broken engine.
-        assert (read_engine_status_value == 1), \
-            f"Engine did not break! Current status: {read_engine_status_value}"
-        dut._log.info(msg = f"Engine broke! Status: {read_engine_status_value}")
+        assert (read_engine_status_value_s16 == 1), \
+            f"Engine did not break! Current status: {read_engine_status_value_s16}"
+        dut._log.info(msg = f"Engine broke! Status: {read_engine_status_value_s16}")
 
 #* ======= Helper Functions =======
 # ------- JSON Loader. -------
