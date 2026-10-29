@@ -20,11 +20,9 @@ import pandas as pd
 #   - period: Total duration of one full clock cycle.
 #   - units: Physical unit of time for the period.
 from cocotb.clock import Clock
-
 #? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
 #   reg or port inside the simulatrors netlist.
 from cocotb.handle import SimHandleBase
-
 #? RisingEdge: Trigger, pauses the Python coroutine until the signal pulses high.
 #   - signal: Wire, register or pin object, that gets monitored.
 #? ClockCycles: Trigger, pauses the the coroutine until the signal has pulsed.
@@ -33,6 +31,8 @@ from cocotb.handle import SimHandleBase
 #   - num_cycles: Total number of clock edges to wait before resuming.
 #   - rising: Counts rising edges (True: 0 -> 1 & False: 1 -> 0).
 from cocotb.triggers import ClockCycles, RisingEdge
+#TODO AC
+from cocotbext.axi import AxiLiteBus
 from numpy import int64
 from numpy.typing import NDArray
 from pandas import DataFrame
@@ -118,13 +118,13 @@ class EngineTester:
         """
 
         #? await: Pauses execution of the current coroutine.
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.s_axi_aclk)
         dut.bus_addr.value = addr
         dut.bus_wdata.value = data
         dut.bus_write_en.value = 1
         dut.bus_read_en.value = 0
 
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.s_axi_aclk)
         dut.bus_write_en.value = 0
 
     async def _bus_read(
@@ -147,16 +147,16 @@ class EngineTester:
             int: The 32-bit raw integer data word returned on 'bus_rdata'.
         """
 
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.s_axi_aclk)
         dut.bus_addr.value = addr
         dut.bus_read_en.value = 1
         dut.bus_write_en.value = 0
 
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.s_axi_aclk)
         dut.bus_read_en.value = 0
 
         # Reads the data returned on the next cycle.
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.s_axi_aclk)
 
         return int(dut.bus_rdata.value)
 
@@ -165,18 +165,18 @@ class EngineTester:
             dut: SimHandleBase
     ) -> None:
         # Resets the device.
-        dut.rst.value = 1
+        dut.s_axi_aresetn.value = 1
         dut.bus_write_en.value = 0
         dut.bus_read_en.value = 0
         dut.bus_addr.value = 0
         dut.bus_wdata.value = 0
         await ClockCycles(
-            signal = dut.clk,
+            signal = dut.s_axi_aclk,
             num_cycles = 5
         )
-        dut.rst.value = 0
+        dut.s_axi_aresetn.value = 0
         await ClockCycles(
-            signal = dut.clk,
+            signal = dut.s_axi_aclk,
             num_cycles = 5
         )
 
@@ -205,7 +205,7 @@ class EngineTester:
 
         # Waits for 1 tick so the hardware officially enters running state.
         while True:
-            await RisingEdge(dut.clk)
+            await RisingEdge(dut.s_axi_aclk)
             if (dut.clk_en_1ms.value == 1): 
                 break
 
@@ -242,7 +242,7 @@ class EngineTester:
         #   in the background (concurenntly).
         # Starts a 100 MhZ clock (10 ns period).
         cocotb.start_soon(
-            Clock(dut.clk, 10, "ns").start()
+            Clock(dut.s_axi_aclk, 10, "ns").start()
         )
 
         # Resets the device.
@@ -307,7 +307,7 @@ class EngineTester:
     ) -> None:
         # Starts a 100 MhZ clock.
         cocotb.start_soon(
-            Clock(dut.clk, 10, "ns").start()
+            Clock(dut.s_axi_aclk, 10, "ns").start()
         )
     
         # Resets the device.
@@ -339,7 +339,7 @@ class EngineTester:
 
             # Advances clock cycles until domain clock pulses.
             while True:
-                await RisingEdge(dut.clk)
+                await RisingEdge(dut.s_axi_aclk)
                 if (dut.clk_en_1ms.value == 1): 
                     break
 
@@ -377,8 +377,12 @@ class EngineTester:
     ) -> None:
         # Starts a 100 MhZ clock.
         cocotb.start_soon(
-            Clock(dut.clk, 10, "ns").start()
+            Clock(dut.s_axi_aclk, 10, "ns").start()
         )
+
+        # Declares the AXI4-Lite module.
+        #TODO
+        #axi4_lite = AxiLiteBus.from
         
         # Resets the device.
         await self._perform_synchronous_reset(dut = dut)
