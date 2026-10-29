@@ -18,19 +18,19 @@ module calculate_target_values #(
     input wire clk, rst,
 
     // Dependents.
-    input wire signed [31:0] current_fuel_flow,
-    input wire signed [31:0] current_rotational_speed,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_fuel_flow,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_rotational_speed,
 
     // Gains.
-    input wire signed [31:0] speed_gain_coeff,
-    input wire signed [31:0] compressor_pressure_gain,
-    input wire signed [31:0] combustion_heat_gain,
-    input wire signed [31:0] mass_overflow_cooling_gain,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] speed_gain_coeff,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] compressor_pressure_gain,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] combustion_heat_gain,
+    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] mass_overflow_cooling_gain,
 
     // ------- Outputs. -------
-    output wire signed [31:0] target_rotational_speed,
-    output wire signed [31:0] target_compressor_pressure,
-    output wire signed [31:0] target_exhaust_gas_temperature
+    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] target_rotational_speed,
+    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] target_compressor_pressure,
+    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] target_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
     localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
