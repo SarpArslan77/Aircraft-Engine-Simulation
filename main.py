@@ -2,13 +2,13 @@
 #* main.py
 
 #* ======= Libraries =======
-# ------- Native. -------
+# ------- Natives. -------
 import json
+import numpy as np
 import os
-#? platform: Retrieves information about the computer and operating system.
-import platform
 import subprocess
 import sys
+
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ from numpy import float64
 from numpy.typing import NDArray
 
 # ------- Customs. -------
+from scripts.locate_iverilog_executable import locate_iverilog_executable
 from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
 from sim_model.aircraft_engine_simulator_fixed_point import (
     AircraftEngineSimulatorFixedPoint,
@@ -36,20 +37,16 @@ from subprocess import CompletedProcess
 #* ======= Main Loop =======
 if __name__ == "__main__":
     # ------- Configurations. -------
-    #? platform.system(): Returns the OS.
-    # Prepends iverilog, if running locally on Windows.
-    if (platform.system() == "Windows"):
-        #TODO FTH
-        IVERILOG_BIN_DIR_PATH: str = r"C:\iverilog\bin"
-        #? "PATH": OSvariable containing list of folders, where
-        #   executable programs live
-        #? os.environ: Dictionary containing all current system environment variables.
-        if (
-            (os.path.exists(IVERILOG_BIN_DIR_PATH)) and
-            (IVERILOG_BIN_DIR_PATH not in os.environ.get("PATH", ""))
-        ):
-            #? os.pathsep: Gives back the correct seperator for the active OS.
-            os.environ["PATH"] = IVERILOG_BIN_DIR_PATH + os.pathsep + os.environ.get("PATH", "")
+    # Locates Icarus Verilog and adds to the environment path.
+    iverilog_executable_path: Path = locate_iverilog_executable(hardcoded_iverilog_path = "C:/iverilog/bin")
+    iverilog_bin_dir: str = str(iverilog_executable_path.parent)
+
+    #? "PATH": OSvariable containing list of folders, where
+    #   executable programs live
+    #? os.environ: Dictionary containing all current system environment variables.
+    if iverilog_bin_dir not in os.environ.get("PATH", ""):
+        #? os.pathsep: Gives back the correct seperator for the active OS.
+        os.environ["PATH"] = iverilog_bin_dir + os.pathsep + os.environ.get("PATH", "")
 
     # ------- Constants. -------
     # Paths.
@@ -65,7 +62,7 @@ if __name__ == "__main__":
     TCL_SCRIPT_PATH: Path = SCRIPTS_DIR_PATH / "synth.tcl"
     README_FILE_PATH: Path = MAIN_DIR_PATH / "README.md"
 
-    DEFAULT_VIVADO_PATH: Path = Path(r"D:\Programs\2025.2\Vivado\bin\vivado.bat")
+    HARDCODED_VIVADO_PATH: Path = Path(r"D:\Programs\2025.2\Vivado\bin\vivado.bat")
 
     # Declares only the constants, which are used in multiple places,
     #   otherwise they are directly declared in the class initializtion.
@@ -118,6 +115,10 @@ if __name__ == "__main__":
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
+    TARGET_PERIOD_NS: float = 10.000
+    LOW_PERIOD_NS: float = 2.000
+    HIGH_PERIOD_NS: float = 10.000
+
     # Exports a JSON File, which containts parameters for other files.
     config: dict[str, dict[str, Any]] = {
         "test_engine" : {
@@ -143,12 +144,14 @@ if __name__ == "__main__":
         mode = "w",
         encoding = "utf-8"
     ) as f:
-        #TODO AC.
         json.dump(
             config, 
             f, 
             indent = 4
         )
+
+    # ------- User-Specifiec Inputs. -------
+    SHOULD_FIND_MAX_FREQ: bool = True
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
@@ -289,7 +292,7 @@ if __name__ == "__main__":
         tcl_script_path = TCL_SCRIPT_PATH,
         readme_file_path = README_FILE_PATH,
 
-        default_vivado_path = DEFAULT_VIVADO_PATH
+        hardcoded_vivado_path = HARDCODED_VIVADO_PATH
     )
 
     synthesis_runner = SynthesisRunner(config_synthesis_runner = config_synthesis_runner)
@@ -409,8 +412,55 @@ if __name__ == "__main__":
     )
 
     # 'python main.py --synth'.
-    if ("--synth" in sys.argv): 
-        synthesis_runner.run_synthesis()
+    if ("--synth" in sys.argv):
+        # Sweeps for different frequencies until the maximum frequencies is reached.
+        if SHOULD_FIND_MAX_FREQ:
+            print()
+            print(f"Calculating the maximum frequency by trying ones between [{LOW_PERIOD_NS}, {HIGH_PERIOD_NS}]...")
+            
+            adjusted_high_period_ns: float = HIGH_PERIOD_NS
+            adjusted_low_period_ns: float = LOW_PERIOD_NS
+
+            # Stores the lowest synthesizable period, defaults to the highest possible period.
+            best_synthesizable_period: float  = HIGH_PERIOD_NS
+            best_wns: float = -np.inf
+
+            while ((adjusted_high_period_ns - adjusted_low_period_ns) > 0.100):
+                # Calculates the test period.
+                test_period_ns: float = round(((adjusted_high_period_ns + adjusted_low_period_ns) / 2), 3)
+                
+                wns: float = synthesis_runner.run_synthesis(
+                    target_period_ns = test_period_ns,
+                    should_update_readme = False
+                )
+
+                # Updates the period boundaries.
+                if (wns >= 0.000):
+                    adjusted_high_period_ns = test_period_ns
+
+                    # Updates the best period and wns.
+                    best_synthesizable_period = test_period_ns
+                    best_wns = wns
+                else:
+                    adjusted_low_period_ns = test_period_ns
+
+                print(f"-> Period: {test_period_ns} & WNS: {wns}")
+
+            # Re-runs the synthesis with the highst frequency for updating the 'README' file.
+            _ = synthesis_runner.run_synthesis(
+                target_period_ns = best_synthesizable_period,
+                should_update_readme = True
+            )
+
+            print()
+            print(f" --> Best (Shortest) Period {best_synthesizable_period} | Best (Lowest) WNS: {best_wns}")
+
+        # Runs the synthesis with the specified target frequency.
+        else:
+            _ = synthesis_runner.run_synthesis(
+                target_period_ns = TARGET_PERIOD_NS,
+                should_update_readme = True
+            )
 
     # 'python main.py --lint'.
     if ("--lint" in sys.argv):
