@@ -106,14 +106,14 @@ The simulator exposes a standard 32-bit bus interface:
 ## FPGA Implementation & Synthesis Benchmarks
 
 <!-- SYNTH_TABLE_START -->
-| Metric / Hardware Resource | Used | Available (Artix-7 xc7a35t) | Utilization [%] |
+| Metric / Hardware Resource | Used | Available (xc7a35tcpg236-1) | Utilization [%] |
 | :--- | :--- | :--- | :--- |
-| **Slice LUTs (Logic)** | 118 | 20,800 | 0.57 % |
-| **Slice Registers (Flip-Flops)** | 180 | 41,600 | 0.00 % |
+| **Slice LUTs (Logic)** | 132 | 20,800 | 0.63 % |
+| **Slice Registers (Flip-Flops)** | 186 | 41,600 | 0.45 % |
 | **DSP48E1 Slices** | 0 | 90 | 0.00 % |
-| **Target Clock ($F_{	ext{target}}$)** | 100.00 MHz (10.0 ns) | - | - |
-| **Achieved Clock ($F_{	ext{max}}$)** | **225.12 MHz** | - | - |
-| **Worst Negative Slack (WNS)** | **+5.558 ns** | - | **Timing Met** |
+| **Target Clock ($F_{	ext{target}}$)** | 307.69 MHz (3.25 ns) | - | - |
+| **Achieved Clock ($F_{	ext{max}}$)** | **309.89 MHz** | - | - |
+| **Worst Negative Slack (WNS)** | **+0.023 ns** | - | **Timing Met** |
 
 *Raw Vivado implementation reports: [`build_synth/utilization.rpt`](build_synth/utilization.rpt) and [`build_synth/timing.rpt`](build_synth/timing.rpt).*
 <!-- SYNTH_TABLE_END -->
