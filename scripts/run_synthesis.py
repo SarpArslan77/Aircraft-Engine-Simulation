@@ -28,7 +28,7 @@ class ConfigSynthesisRunner:
     tcl_script_path: Path
     readme_file_path: Path
 
-    default_vivado_path: Path 
+    hardcoded_vivado_path: Path | None = None
 
 #* ======= Vivado Runner Class =======
 class SynthesisRunner:
@@ -49,6 +49,11 @@ class SynthesisRunner:
         else: 
             vivado_bin_relative_path = Path("bin/vivado")
 
+        # Searches in system 'PATH'.
+        vivado_system_path: str | None = shutil.which(cmd = "vivado")
+        if vivado_system_path: 
+            return Path(vivado_system_path)
+
         # Searches in system environment variables.
         vivado_env_dir: str | None = os.environ.get("XILINX_VIVADO", None)
         if vivado_env_dir:
@@ -57,11 +62,6 @@ class SynthesisRunner:
 
             if vivado_path.is_file(): 
                 return vivado_path
-
-        # Searches in system 'PATH'.
-        vivado_system_path: str | None = shutil.which(cmd = "vivado")
-        if vivado_system_path: 
-            return Path(vivado_system_path)
 
         # Searches in common installation directories.
         vivado_common_installation_dirs: list[Path] = [
@@ -85,26 +85,34 @@ class SynthesisRunner:
                         if vivado_path.is_file(): 
                             return vivado_path
 
-        # Falls back to the configured default path.
-        return self._cfg.default_vivado_path
+        # Falls back to the configured path.
+        return self._cfg.hardcoded_vivado_path
 
     def _parse_reports(
-            self
+            self,
+            target_period_ns: float
     ) -> dict[str, Any]:
         # Initializes the report paths and the metrics dictionary.
         utilization_report_file_path: Path = self._cfg.build_synth_dir_path / "utilization.rpt"
         timing_report_file_path: Path = self._cfg.build_synth_dir_path / "timing.rpt"
 
         metrics: dict[str, Any] = {
+            "device": "Unknown FPGA",
+
             "lut_used": 0,
+            "lut_avail": 0,
             "lut_util": 0.0, 
 
-            "ff_used": 0, 
+            "ff_used": 0,
+            "ff_avail": 0,
             "ff_util": 0.0, 
 
-            "dsp_used": 0, 
-            "dsp_util": 0.0, 
+            "dsp_used": 0,
+            "dsp_avail": 0, 
+            "dsp_util": 0.0,
 
+            "target_period_ns": target_period_ns,
+            "target_freq_mhz": round((1_000 / target_period_ns), 3), #TODO FTH
             "wns": 0.0, 
             "f_max_mhz": 0.0, 
             "timing_met": False    
@@ -120,37 +128,54 @@ class SynthesisRunner:
                 errors = "replace"
             )
 
+
             #? re.search(): Scans the entire text looking for first place where the pattern matches.
-            # Regex for Slice LUTs: | Slice LUTs* | <used> | ... | <util> |
-            lut_match: Match | None = re.search( 
-                pattern = r"\|\s*Slice LUTs\s*\*?\s*\|\s*(\d+)\s*\|(?:.*?\|){3}\s*([\d\.]+)\s*\|",
+            # Extracts the device name from the header.
+            device_name: Match | None = re.search(
+                pattern = r"\|\s*Device\s*:\s*(\S+)",
                 string = text
             )
-            if lut_match:
+            if device_name:
                 #? .group(): Capture Groups.
                 #       - '0': Returns entire matched pattern.
                 #       - '1': Returns whatever was captured inside the first set of parantheses.
-                #       - '2': Returns whatever was captured inside the second set of parantheses.
-                metrics["lut_used"] = int(lut_match.group(1))
-                metrics["lut_util"] = float(lut_match.group(2))
+                metrics["device"] = device_name.group(1)
+            
+            # Regex for Slice LUTs: | Slice LUTs* | <used> | <fixed> | <prohibited> | <available> |.
+            lut_metrics: Match | None = re.search( 
+                pattern = r"\|\s*Slice LUTs\s*\*?\s*\|\s*(\d+)\s*\|(?:.*?\|){2}\s*(\d+)\s*\|",
+                string = text
+            )
+            if lut_metrics:
+                metrics["lut_used"] = int(lut_metrics.group(1))
+                metrics["lut_avail"] = int(lut_metrics.group(2))
 
-            # Regex for Flip Flops: | Register as Flip Flop | <used> | ... | <util> |
+                if metrics["lut_avail"] > 0:
+                    metrics["lut_util"] = (metrics["lut_used"] / metrics["lut_avail"]) * 100.0
+
+            # Regex for Flip Flops: | Slice Registers | <used> | <fixed> | <prohibited> | <available> |.
             ff_match: Match | None = re.search( 
-                pattern = r"\|\s*(?:Register as Flip Flop|Slice Registers)\s*\|\s*(\d+)\s*\|.*?\|\s*([\d\.]+)\s*\|",
+                pattern = r"\|\s*(?:Register as Flip Flop|Slice Registers)\s*\|\s*(\d+)\s*\|(?:.*?\|){2}\s*(\d+)\s*\|",
                 string = text
             )
             if ff_match:
                 metrics["ff_used"] = int(ff_match.group(1))
-                metrics["ff_util"] = float(ff_match.group(2))
+                metrics["ff_avail"] = int(ff_match.group(2))
 
-            # Regex for DSP48 slices: | DSPs | <used> | ... | <util> |
+                if metrics["ff_avail"] > 0:
+                    metrics["ff_util"] = (metrics["ff_used"] / metrics["ff_avail"]) * 100.0
+
+            # Regex for DSP48 slices: | DSPs | <used> | <fixed> | <prohibited> | <available> |.
             dsp_match: Match | None = re.search( 
-                pattern = r"\|\s*DSPs?\s*\|\s*(\d+)\s*\|.*?\|\s*([\d\.]+)\s*\|",
+                pattern = r"\|\s*DSPs?\s*\|\s*(\d+)\s*\|(?:.*?\|){2}\s*(\d+)\s*\|",
                 string = text
             )
             if dsp_match:
                 metrics["dsp_used"] = int(dsp_match.group(1))
-                metrics["dsp_util"] = float(dsp_match.group(2))
+                metrics["dsp_avail"] = int(dsp_match.group(2))
+
+                if metrics["dsp_avail"] > 0:
+                    metrics["dsp_util"] = (metrics["dsp_used"] / metrics["dsp_avail"]) * 100.0
         else:
             print(f"Warning: Utilization report not found at '{utilization_report_file_path}'")
 
@@ -160,6 +185,15 @@ class SynthesisRunner:
                 encoding = "utf-8",
                 errors = "replace"
             )
+
+            # Targets period and frequency from Clock Summary table.
+            clk_match: Match | None = re.search(
+                pattern = r"\S+\s+\{[^\}]+\}\s+([\d\.]+)\s+([\d\.]+)",
+                string = text
+            )
+            if clk_match:
+                metrics["target_period_ns"] = float(clk_match.group(1))
+                metrics["target_freq_mhz"] = float(clk_match.group(2))
 
             #? re.IGNORECASE: Makes the search case-insensitive.
             # Worst Negative Slack (WNS).
@@ -172,9 +206,7 @@ class SynthesisRunner:
             if wns_match:
                 wns = float(wns_match.group(1))
                 metrics["wns"] = wns
-
-                target_period_ns: float = 10.0 #TODO FH
-                achieved_period_ns = target_period_ns - wns
+                achieved_period_ns = metrics["target_period_ns"] - wns
 
                 # Avoids division by zero, if critical path is broken.
                 if (achieved_period_ns > 0):
@@ -199,12 +231,12 @@ class SynthesisRunner:
         status_badge: str = "Timing Met" if metrics.get("timing_met", False) else "Timing Failed"
 
         # Formatted Markdown Table.
-        new_table: str = f"""| Metric / Hardware Resource | Used | Available (Artix-7 xc7a35t) | Utilization [%] |
+        new_table: str = f"""| Metric / Hardware Resource | Used | Available ({metrics.get('device', 'FPGA')}) | Utilization [%] |
 | :--- | :--- | :--- | :--- |
-| **Slice LUTs (Logic)** | {metrics.get('lut_used', 0):,} | 20,800 | {metrics.get('lut_util', 0.0):.2f} % |
-| **Slice Registers (Flip-Flops)** | {metrics.get('ff_used', 0):,} | 41,600 | {metrics.get('ff_util', 0.0):.2f} % |
-| **DSP48E1 Slices** | {metrics.get('dsp_used', 0):,} | 90 | {metrics.get('dsp_util', 0.0):.2f} % |
-| **Target Clock ($F_{{\\text{{target}}}}$)** | 100.00 MHz (10.0 ns) | - | - |
+| **Slice LUTs (Logic)** | {metrics.get('lut_used', 0):,} | {metrics.get('lut_avail', 0):,} | {metrics.get('lut_util', 0.0):.2f} % |
+| **Slice Registers (Flip-Flops)** | {metrics.get('ff_used', 0):,} | {metrics.get('ff_avail', 0):,} | {metrics.get('ff_util', 0.0):.2f} % |
+| **DSP48E1 Slices** | {metrics.get('dsp_used', 0):,} | {metrics.get('dsp_avail', 0):,} | {metrics.get('dsp_util', 0.0):.2f} % |
+| **Target Clock ($F_{{\\text{{target}}}}$)** | {metrics.get('target_freq_mhz', 100.0):.2f} MHz ({metrics.get('target_period_ns', 10.0):.2f} ns) | - | - |
 | **Achieved Clock ($F_{{\\text{{max}}}}$)** | **{metrics.get('f_max_mhz', 0.0):.2f} MHz** | - | - |
 | **Worst Negative Slack (WNS)** | **{metrics.get('wns', 0.0):+.3f} ns** | - | **{status_badge}** |
 
@@ -242,41 +274,56 @@ class SynthesisRunner:
 
     def _print_metrics_summary(
         self,
-        metrics: dict[str, Any]
+        metrics: dict[str, Any],
+        should_print_metrics_summary: bool
     ) -> None:
         timing_str = "TIMING CLOSED (PASS)" if metrics.get("timing_met") else "TIMING VIOLATION (FAIL)"
         print()
-        print(" VIVADO OUT-OF-CONTEXT SYNTHESIS & TIMING REPORT")
-        print(f"  - Slice LUTs:          {metrics.get('lut_used', 0):>6}  /  20,800  ({metrics.get('lut_util', 0.0):>5.2f} %)")
-        print(f"  - Flip-Flops:          {metrics.get('ff_used', 0):>6}  /  41,600  ({metrics.get('ff_util', 0.0):>5.2f} %)")
-        print(f"  - DSP48 Slices:        {metrics.get('dsp_used', 0):>6}  /      90  ({metrics.get('dsp_util', 0.0):>5.2f} %)")
-        print("  - Target Clock:        100.00 MHz (10.000 ns)")
+        print(f" VIVADO OUT-OF-CONTEXT SYNTHESIS & TIMING REPORT  [Device: {metrics.get('device')}]")
+        print(f"  - Slice LUTs:          {metrics.get('lut_used', 0):>6}  /  {metrics.get('lut_avail', 0):>6}  ({metrics.get('lut_util', 0.0):>5.2f} %)")
+        print(f"  - Flip-Flops:          {metrics.get('ff_used', 0):>6}  /  {metrics.get('ff_avail', 0):>6}  ({metrics.get('ff_util', 0.0):>5.2f} %)")
+        print(f"  - DSP48 Slices:        {metrics.get('dsp_used', 0):>6}  /  {metrics.get('dsp_avail', 0):>6}  ({metrics.get('dsp_util', 0.0):>5.2f} %)")
+        print(f"  - Target Clock:        {metrics.get('target_freq_mhz', 100.0):.2f} MHz ({metrics.get('target_period_ns', 10.0):.3f} ns)")
         print(f"  - Worst Negative Slack: {metrics.get('wns', 0.0):>+6.3f} ns")
         print(f"  - Achieved Fmax:       {metrics.get('f_max_mhz', 0.0):>6.2f} MHz  -->  {timing_str}")
 
-    def run_synthesis(self) -> None:
+    def run_synthesis(
+        self,
+        target_period_ns: float,
+        should_update_readme: bool
+    ) -> float:
         vivado_path: Path = self._locate_vivado_executable()
 
         # Vivado batch mode command.
         cmd: list[Any] = [
             vivado_path,
             "-mode", "batch",
-            "-source", str(self._cfg.tcl_script_path),
             "-nojournal",
-            "-nolog"
+            "-nolog",
+            "-source", str(self._cfg.tcl_script_path),
+            "-tclargs", str(target_period_ns),
         ]
 
         # Executes Vivado.
         #TODO AC
-        _: CompletedProcess = subprocess.run( 
+        result: CompletedProcess = subprocess.run( 
             cmd,
-            cwd = self._cfg.main_dir_path,
+            cwd = self._cfg.build_synth_dir_path,
             capture_output = True,
             check = False,
             text = True
         )
 
-        print("Vivado process finished successfully.")
+        # Checks whether any failure happened.
+        if result.returncode != 0:
+            print()
+            print("[VIVADO EXECUTION FAILED]")
+            print(result.stdout)
+            print(result.stderr)
+            raise RuntimeError(f"Vivado failed with exit code {result.returncode}. See output above.")
+
+        if not should_update_readme:
+            print("Vivado process finished successfully.")
 
         # Moves any stray scratch files dumped by Vivado into 'build_synth'.
         stray_files: list[str] = [
@@ -299,10 +346,17 @@ class SynthesisRunner:
                 )
 
         # Parses reports.
-        metrics: dict[str, Any] = self._parse_reports()
+        metrics: dict[str, Any] = self._parse_reports(target_period_ns = target_period_ns)
 
         # Prints terminal summary.
-        self._print_metrics_summary(metrics = metrics)
+        if should_update_readme:
+            self._print_metrics_summary(
+                metrics = metrics,
+                should_print_metrics_summary = should_update_readme
+            )
 
         # Updates README.md.
-        self._update_readme(metrics = metrics)
+        if should_update_readme:
+            self._update_readme(metrics = metrics) 
+
+        return metrics["wns"]
