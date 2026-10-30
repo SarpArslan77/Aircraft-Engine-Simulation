@@ -1,5 +1,5 @@
 
-#* quantize_floats.py
+#* sim_model/quantize_floats.py
 
 def quantize_floats(
         val: float,

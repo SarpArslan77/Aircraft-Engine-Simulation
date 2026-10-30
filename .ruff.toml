@@ -1,4 +1,6 @@
 
+#* .ruff.toml
+
 #* ======= Tom's Obvious, Minimal Language (TOML) =======
 # Human-readable format for storing structured configuration data.
 

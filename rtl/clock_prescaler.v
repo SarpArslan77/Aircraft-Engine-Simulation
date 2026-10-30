@@ -1,5 +1,5 @@
 
-//* clock_prescaler.v
+//* rtl/clock_prescaler.v
 
 `timescale 1ns / 1ps
 

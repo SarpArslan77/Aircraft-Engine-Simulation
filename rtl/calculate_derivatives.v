@@ -1,5 +1,5 @@
 
-//* calculate_derivatives.v
+//* rtl/calculate_derivatives.v
 
 `timescale 1ns / 1ps
 

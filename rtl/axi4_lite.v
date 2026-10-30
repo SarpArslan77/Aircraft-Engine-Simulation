@@ -1,4 +1,5 @@
-//* axi4_lite.v
+
+//* rtl/axi4_lite.v
 
 //* The 'VALID' / 'READY' Handshake:
 // Every AXI channel transfers data using a two-way handshake. A transfer
@@ -35,7 +36,6 @@ module axi4_lite #(
     //? s_axi_wstrb: Byte-enable qualifiers:
     //      -> wstrb[0] = 1: Write byte 0 (wdata[7:0]).
     //      -> wstrb[1] = 1: Write byte 1 (wdata[15:8]).
-    
     //      -> wstrb[2] = 1: Write byte 2 (wdata[23:16]).
     //      -> wstrb[3] = 1: Write byte 3 (wdata[31:24]).
     input wire [3:0] s_axi_wstrb,

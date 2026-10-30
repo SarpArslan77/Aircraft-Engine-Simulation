@@ -1,5 +1,5 @@
 
-#* graph_visualizer.py
+#* sim_model/graph_visualizer.py
 
 #* ======= Libraries =======
 # ------- Native. -------

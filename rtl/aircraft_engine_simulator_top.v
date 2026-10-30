@@ -1,5 +1,5 @@
 
-//* aircraft_engine_simulator_top.v
+//* rtl/aircraft_engine_simulator_top.v
 
 `timescale 1ns / 1ps
 
@@ -228,7 +228,7 @@ module aircraft_engine_simulator_top #(
         // ~> Engine Controls.
         .start_engine(start_engine),
         .restart_engine(restart_engine),
-        
+
         .fuel_flow_command(fuel_flow_command),
 
         .fault_compressor_stall(fault_compressor_stall),

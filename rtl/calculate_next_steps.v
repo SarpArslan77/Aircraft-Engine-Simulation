@@ -1,5 +1,5 @@
 
-//* calculate_next_steps.v
+//* rtl/calculate_next_steps.v
 
 `timescale 1ns / 1ps
 
