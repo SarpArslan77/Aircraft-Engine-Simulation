@@ -1,3 +1,6 @@
+
+#* .gitignore
+
 # Generic VSCode Files.
 /__pycache__
 /.vscode
@@ -24,6 +27,7 @@
 # Extra Files.
 /tb/config.json
 
+/build_synth/.Xil
 /build_synth/clockinfo.txt
 /build_synth/dfx_runtime.txt
 
