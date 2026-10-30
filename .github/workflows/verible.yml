@@ -1,5 +1,5 @@
 
-#TODO Add new comments and copy the old ones from old commit.
+#* .github/workflows/verible.yml
 
 name: Verible RTL Lint
 
@@ -17,6 +17,7 @@ jobs:
   verible:
     name: Verible RTL lint
     runs-on: ubuntu-latest
+    #? timeout-minutes: Sets maximum execution time allowed for the job.
     timeout-minutes: 5
 
     steps:
@@ -24,18 +25,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Verible
+        #? shell: bash -> Executes the script in 'bash' shell.
         shell: bash
         run: |
+        
+          #? set -euo pipefail: 'Bash Strict Mode' to prevent silent errors.
+          #   -e (errexit): Exit immediately if any command exists with failure status.
+          #   -u (nounset): Treats uninitialized variables as an error and exits immediately.
+          #   -o pipefail: Makes pipeline fail any commands in the chain fails.
           set -euo pipefail
 
           VERSION="v0.0-4296-g0f262651"
           BASE="https://github.com/chipsalliance/verible/releases/download/${VERSION}"
 
-          # Find the exact Linux x86_64 asset published for this release.
+          #? curl: Downloads the release metadata from GitHub's 'REST API' into temporary JSON file.
+          #   -f (--fail): Fails silently on server HTTP errors.
+          #   -s (--silent): Mutes progress meters and non-error messages.
+          #   -S (--show-error): Shows an error message if the command fails.
+          #   -L (--location): Follows HTTP redirects.
+          #   -o /tmp/release.json: Writes the downloaded content directly to the JSON file.
+          # Finds the exact Linux x86_64 asset published for this release.
           curl -fsSL \
             "https://api.github.com/repos/chipsalliance/verible/releases/tags/${VERSION}" \
             -o /tmp/release.json
-
+  
           ASSET_URL="$(python3 -c '
           import json
           d = json.load(open("/tmp/release.json"))
@@ -49,10 +62,21 @@ jobs:
 
           curl -fsSL "$ASSET_URL" -o /tmp/verible.tar.gz
           mkdir -p /tmp/verible
+          #? tar -xzf /tmp/verible.tar.gz -C /tmp/verible:
+          #   -x: Extracts files.
+          #   -z: Decompresses using 'gzip' (.gz).
+          #   -f: Specifies the input archive file
+          #   -C /tmp/verible: Changes the directory.
           tar -xzf /tmp/verible.tar.gz -C /tmp/verible
 
+          #? find /tmp/verible -type f:
+          #   find: Searches recursively.
+          #   -type f: Looks for files.
+          #   -name: Matches files with this name.
+          #   -rpint -quit: Prints the path of the very first match and stops searching immediately.
           LINTER="$(find /tmp/verible -type f \
             -name verible-verilog-lint -print -quit)"
+          #? test -n: Checks if the variable is non-empty.
           test -n "$LINTER"
           sudo install "$LINTER" /usr/local/bin/verible-verilog-lint
 
@@ -64,13 +88,23 @@ jobs:
         run: |
           set -euo pipefail
 
+          #? mapfile -t file <...: Reads lines from the input and assigns them into an indexed Bash array.
+          #? -t: Trims the newline charachters from the end of each line.
+          #? find rtl -type f \( -name '*.v' -o -name '*.sv' \) | sort:
+          #   find: Searches inside the folder.
+          #   \( ... \): Groups logical conditions.
+          #   | sort: Sorts the filenames alphabetically.
           mapfile -t files < <(
             find rtl -type f \( -name '*.v' -o -name '*.sv' \) | sort
           )
 
+          #? #array[@]: Evaluates to the number of elements of an array.
+          #? -eq 0: Checks if the array length equals to zero.
+          #? exit 1: Fails the kob with an explicit error mesage.
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No Verilog/SystemVerilog files found under rtl/"
             exit 1
           fi
 
+          #? ${files[@]}: Expands the bash array into individual arguments.
           verible-verilog-lint --rules_config_search "${files[@]}"
