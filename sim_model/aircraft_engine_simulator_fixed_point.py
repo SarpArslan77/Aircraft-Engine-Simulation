@@ -1,8 +1,55 @@
 
 #* sim_model/aircraft_engine_simulator_fixed_point.py
 
-#TODOS
-# 1) For all the mathematical equations, write them as comments as well.
+#? In order to calculate how the engine changes over time in fixed-point arithmetic,
+#?   these discrete Q16.16 equations must be evaluated at every time step 'k'.
+#? Multiplications of two Q16.16 fixed-point values produce a Q32.32 intermediate
+#?   result and require an arithmetic right-shift (>> FRACTIONAL_BIT_WIDTH) to realign.
+#? Expensive hardware divisions are avoided by pre-calculating discrete (dt / tau) constants.
+
+#* A) Rotational Speed 'N': Engine speed (normalized from 0% to 100% in Q16.16).
+# 1) Target Speed: N_target[k] = (K_N * W_f[k]) >> 16.
+#   where as: K_N: Speed Gain Coefficient & W_f: Fuel Flow Rate.
+# 2) Discrete Derivative (Division-Free): dN[k] = (C_N * (N_target[k] - N[k])) >> 16.
+#   C_N: Pre-calculated discrete factor round((dt / tau_N) * 2^16).
+# 3) Next State (Euler Accumulation): N[k+1] = N[k] + dN[k].
+# 4) Physical Safeguard Clamping: N[k+1] = max(0, N[k+1]).
+
+#* B) Compressor Pressure 'P': Pressure inside the engine (in kPa in Q16.16).
+# 1) Target Pressure: P_target[k] = P_amb + ((K_P * ((N[k]^2) >> 16)) >> 16).
+#   P_amb: Ambient Atmospheric Pressure & K_P: Compressor Pressure Gain.
+# 2) Discrete Derivative (Division-Free): dP[k] = (C_P * (P_target[k] - P[k])) >> 16.
+#   C_P: Pre-calculated discrete factor round((dt / tau_P) * 2^16).
+# 3) Next State (Euler Accumulation): P[k+1] = P[k] + dP[k].
+# 4) Physical Safeguard Clamping: P[k+1] = max(P_amb, P[k+1]).
+
+#* C) Exhaust Gas Temperature 'T': Thermal output (in *C in Q16.16).
+# 1) Target Temperature: T_target[k] = T_amb + ((K_heat * W_f[k]) >> 16) - ((K_cool * N[k]) >> 16).
+#   T_amb: Ambient Air Temperature & K_heat: Combustion Heat Gain & K_cool: Airflow Cooling Gain.
+# 2) Discrete Derivative (Division-Free): dT[k] = (C_T * (T_target[k] - T[k])) >> 16.
+#   C_T: Pre-calculated discrete factor round((dt / tau_T) * 2^16).
+# 3) Next State (Euler Accumulation): T[k+1] = T[k] + dT[k].
+# 4) Physical Safeguard Clamping: T[k+1] = max(T_amb, T[k+1]).
+
+#? Fixed-Point Scaling & Quantization Parameters (Scale Factor = 2^16 = 65536):
+
+# 1) Word Length: 32 bits (16-bit integer, 16-bit fractional, two's-complement signed).
+# 2) Simulation Step: dt = 1 ms (0.001 s).
+# 3) Ambient Conditions (Quantized):
+#   i) P_amb = 101.3 kPa -> round(101.3 * 65536) = 6638797 LSBs.
+#   ii) T_amb = 15.0 *C   -> round(15.0 * 65536)  = 983040 LSBs.
+# 4) Pre-Calculated Discrete Integration Factors C = round((dt / tau) * 65536):
+#   i) C_N = round((0.001 / 1.5) * 65536)  = 44 LSBs (Rotor Inertial Lag).
+#   ii) C_P = round((0.001 / 0.15) * 65536) = 437 LSBs (Compressor Volume Lag).
+#   iii) C_T = round((0.001 / 0.8) * 65536)  = 82 LSBs (Thermal Mass Lag).
+# 5) System Gains (Quantized):
+#   i) K_N = 1.0        -> round(1.0 * 65536)     = 65536 LSBs.
+#   ii) K_P = 0.015      -> round(0.015 * 65536)   = 983 LSBs.
+#   iii) K_heat = 15.0   -> round(15.0 * 65536)    = 983040 LSBs.
+#   iv) K_cool = 6.0     -> round(6.0 * 65536)     = 393216 LSBs.
+# 6) Structural Safety Trip Thresholds:
+#   i) N_max = 110.0%    -> round(110.0 * 65536)   = 7208960 LSBs (Overspeed).
+#   ii) T_max = 1100.0 *C -> round(1100.0 * 65536) = 72089600 LSBs (Thermal Meltdown).
 
 #* ======= Libraries =======
 # ------- Natives. -------
@@ -405,7 +452,7 @@ class AircraftEngineSimulatorFixedPoint:
             stop = self._cfg.total_simulation_time,
             num = total_steps + 1,
             dtype = float64
-        ).round(decimals = time_history_rounding_decimals) #TODO FTH
+        ).round(decimals = time_history_rounding_decimals)
 
         # Creates empty data structures.
         fuel_flow_history: NDArray[int64] = np.empty(
