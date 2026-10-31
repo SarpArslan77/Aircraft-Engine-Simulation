@@ -32,7 +32,13 @@ from cocotb.handle import SimHandleBase
 #   - num_cycles: Total number of clock edges to wait before resuming.
 #   - rising: Counts rising edges (True: 0 -> 1 & False: 1 -> 0).
 from cocotb.triggers import ClockCycles, RisingEdge
-#TODO AC
+#? cocotbext-axi: It sits on top of Cocotb and abstracts cycle-accurate bus
+#   signaling into high-level, asynchronous Python transactions (read and write)
+#   with AXI Syntax.
+#? AxiLiteBus: Structural container, finds bundles and wraps the physical wires
+#   of the Device Under Test (DUT) into single object.
+#? AxiLiteMaster: Active controller, simulates a CPU core or bus master driving
+#   transactions into the design (which acts like a AXI Slave).
 from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 from numpy import int64
 from numpy.typing import NDArray
@@ -69,14 +75,20 @@ class ConfigEngineTester:
     addr_fault_injection: int
 
     # ------- Paths. -------
-    software_results_file_path_str: Path
+    software_results_file_path_str: str
 
     # ------- Simulation. -------
     simulation_step: float
     total_simulation_time: float
 
-    # ------- Engine Limits. -------
+    fractional_bit_width: int
+
+    # ------- Engine. -------
     max_compressor_temperature: int
+
+    smoke_test_duration: float
+    compressor_stall_test_duration: float
+    max_thermal_threshold_cross_duration: float
 
 #* ======= Aircraft Engine Tester =======
 class EngineTester:
@@ -215,7 +227,7 @@ class EngineTester:
         )
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
-        fuel_command_s16: int = 10 << 16 #TODO FTH
+        fuel_command_s16: int = 10 << self._cfg.fractional_bit_width
         fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
             4,
             "little",
@@ -250,10 +262,12 @@ class EngineTester:
                 signed = True
             ) 
         )
-        dut._log.info(msg = "Engine start commanded! Running simulation for 50 cycles ...") #TODO FTH
+        dut._log.info(msg = "Engine start commanded! Running simulation...") 
 
         # Waits for Euoler integration cycles.
-        for _ in range(50):
+        smoke_test_cycle: int = round(self._cfg.smoke_test_duration / self._cfg.simulation_step)
+
+        for _ in range(smoke_test_cycle):
             await RisingEdge(dut.clk_en_1ms)
 
         # Reads the data back over the bus.
@@ -288,9 +302,9 @@ class EngineTester:
         )
 
         # Scales back the read-values to normal intervalls.
-        speed_scaled: float = read_speed_value_s16 / (1 << 16)
-        pressure_scaled: float = read_pressure_value_s16 / (1 << 16)
-        temperature_scaled: float = read_temperature_value_s16 / (1 << 16)
+        speed_scaled: float = read_speed_value_s16 / (1 << self._cfg.fractional_bit_width)
+        pressure_scaled: float = read_pressure_value_s16 / (1 << self._cfg.fractional_bit_width)
+        temperature_scaled: float = read_temperature_value_s16 / (1 << self._cfg.fractional_bit_width)
 
         # Logs the results.
         dut._log.info(f"Read-Data: Speed: {speed_scaled:.2f}, Pressure: {pressure_scaled:.2f} kPa, Temperature: {temperature_scaled} *C")
@@ -458,7 +472,7 @@ class EngineTester:
         )
 
         # Writes to fuel command register (90 kg/h in Q16.16 = 90 << 16).
-        fuel_command_s16: int = 90 << 16 #TODO FTH
+        fuel_command_s16: int = 90 << self._cfg.fractional_bit_width
         fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
             4,
             "little",
@@ -485,7 +499,9 @@ class EngineTester:
         dut._log.info(msg = f"Fuel command register verified: {read_fuel_value_s16 >> 16} kg/h")
 
         # Waits for Euoler integration cycles.
-        for _ in range(500): #TODO FTH
+        compressor_stall_test_cycle: int = round(self._cfg.compressor_stall_test_duration / self._cfg.simulation_step)
+
+        for _ in range(compressor_stall_test_cycle): 
             await RisingEdge(dut.clk_en_1ms)
 
         # Injects the fault.
@@ -499,28 +515,36 @@ class EngineTester:
         )
 
         # Waits for the temperature to raise and engine to break.
-        for _ in range(5000): #TODO Optimize this by calculating how many cycles it takes to break.
+        is_thermal_threshold_crossed: bool = False
+
+        max_thermal_threshold_cross_cycle: int = round(self._cfg.max_thermal_threshold_cross_duration / self._cfg.simulation_step)
+        thermal_threshold_cross_cycle: int = 0
+
+        while not is_thermal_threshold_crossed:
             await RisingEdge(dut.clk_en_1ms)
+            thermal_threshold_cross_cycle += 1
 
-        """ #TODO Fix this to check the temperature value.
-        # Reads the temperature.
-        read_temperature_value_bytes = await axil_master.read(
-            address = self._cfg.addr_temperature,
-            length = 4
-        )
-        read_temperature_value_s16: int = int.from_bytes(
-            read_temperature_value_bytes,
-            "little",
-            signed = True
-        )
-        read_temperature_value_scaled: int = (read_temperature_value_s16 >> 16) #TODO FTH
+            # Reads the temperature.
+            read_temperature_value_bytes = await axil_master.read(
+                address = self._cfg.addr_temperature,
+                length = 4
+            )
+            read_temperature_value_s16: int = int.from_bytes(
+                read_temperature_value_bytes,
+                "little",
+                signed = True
+            )
+            read_temperature_value_scaled: float = read_temperature_value_s16 / (1 << self._cfg.fractional_bit_width)
 
-        # Checks red-temperature value is greater then thermal limit. 
-        
-        assert (read_temperature_value_scaled > self._cfg.max_compressor_temperature), \
-            f"Thermal limit not reached! Maximum allowed temperature {self._cfg.max_compressor_temperature}, read-value {read_temperature_value_scaled}"
-        dut._log.info(msg = f"Thermal limit reached: {read_temperature_value_scaled}")
-        """
+            # Checks red-temperature value is greater then thermal limit. 
+            if (read_temperature_value_scaled > self._cfg.max_compressor_temperature):
+                is_thermal_threshold_crossed = True
+
+                dut._log.info(msg = f"Thermal limit reached: {read_temperature_value_scaled}")
+
+            # Safety mechanism, stops the loop if it passes its maximum time threshold.
+            if (thermal_threshold_cross_cycle >= max_thermal_threshold_cross_cycle) and not is_thermal_threshold_crossed:
+                raise TimeoutError(f"Timeout! Engine failed to trip within {max_thermal_threshold_cross_cycle} cycles.")
         
         # Reads the engine status.
         read_engine_status_value_bytes = await axil_master.read(
@@ -583,22 +607,7 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     active_file_name: str = Path(__file__).stem
     active_file_config: dict = config[active_file_name]
     
-    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
-        addr_control = active_file_config["addr_control"],
-        addr_status = active_file_config["addr_status"],
-        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
-        addr_speed = active_file_config["addr_speed"],
-        addr_pressure = active_file_config["addr_pressure"],
-        addr_temperature = active_file_config["addr_temperature"],
-        addr_fault_injection = active_file_config["addr_fault_injection"],
-
-        software_results_file_path_str = active_file_config["software_results_file_path_str"],
-
-        simulation_step = active_file_config["simulation_step"],
-        total_simulation_time = active_file_config["total_simulation_time"],
-
-        max_compressor_temperature = active_file_config["max_compressor_temperature"]
-    )
+    config_engine_tester = ConfigEngineTester(**active_file_config)
 
     tester = EngineTester(config_engine_tester = config_engine_tester)
     
@@ -613,22 +622,7 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     active_file_name: str = Path(__file__).stem
     active_file_config: dict = config[active_file_name]
     
-    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
-        addr_control = active_file_config["addr_control"],
-        addr_status = active_file_config["addr_status"],
-        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
-        addr_speed = active_file_config["addr_speed"],
-        addr_pressure = active_file_config["addr_pressure"],
-        addr_temperature = active_file_config["addr_temperature"],
-        addr_fault_injection = active_file_config["addr_fault_injection"],
-    
-        software_results_file_path_str = active_file_config["software_results_file_path_str"],
-    
-        simulation_step = active_file_config["simulation_step"],
-        total_simulation_time = active_file_config["total_simulation_time"],
-
-        max_compressor_temperature = active_file_config["max_compressor_temperature"]
-    )
+    config_engine_tester = ConfigEngineTester(**active_file_config)
     
     tester = EngineTester(config_engine_tester = config_engine_tester)
 
@@ -643,22 +637,7 @@ async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
     active_file_name: str = Path(__file__).stem
     active_file_config: dict = config[active_file_name]
 
-    config_engine_tester = ConfigEngineTester( #TODO Automate this json file extraction with already defined parameter names.
-        addr_control = active_file_config["addr_control"],
-        addr_status = active_file_config["addr_status"],
-        addr_fuel_flow_command = active_file_config["addr_fuel_flow_command"],
-        addr_speed = active_file_config["addr_speed"],
-        addr_pressure = active_file_config["addr_pressure"],
-        addr_temperature = active_file_config["addr_temperature"],
-        addr_fault_injection = active_file_config["addr_fault_injection"],
-    
-        software_results_file_path_str = active_file_config["software_results_file_path_str"],
-    
-        simulation_step = active_file_config["simulation_step"],
-        total_simulation_time = active_file_config["total_simulation_time"],
-    
-        max_compressor_temperature = active_file_config["max_compressor_temperature"]
-    )
+    config_engine_tester = ConfigEngineTester(**active_file_config)
 
     tester = EngineTester(config_engine_tester = config_engine_tester)
     
