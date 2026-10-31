@@ -135,7 +135,13 @@ if __name__ == "__main__":
             "simulation_step": SIMULATION_STEP,
             "total_simulation_time": TOTAL_SIMULATION_TIME,
 
-            "max_compressor_temperature": MAX_COMPRESSOR_TEMPERATURE
+            "fractional_bit_width": FRACTIONAL_BIT_WIDTH,
+
+            "max_compressor_temperature": MAX_COMPRESSOR_TEMPERATURE,
+
+            "smoke_test_duration": 5e-2,
+            "compressor_stall_test_duration": 5e-1,
+            "max_thermal_threshold_cross_duration": 3
         }
     }
 
