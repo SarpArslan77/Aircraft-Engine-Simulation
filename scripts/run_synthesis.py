@@ -112,7 +112,7 @@ class SynthesisRunner:
             "dsp_util": 0.0,
 
             "target_period_ns": target_period_ns,
-            "target_freq_mhz": round((1_000 / target_period_ns), 3), #TODO FTH
+            "target_freq_mhz": round((1_000 / target_period_ns), 3),
             "wns": 0.0, 
             "f_max_mhz": 0.0, 
             "timing_met": False    
@@ -305,7 +305,15 @@ class SynthesisRunner:
         ]
 
         # Executes Vivado.
-        #TODO AC
+        #? cmd: A list of strings representing the command line invocation.
+        #? cwd: Current Working Directory (CWD).
+        #? capture_checkput: True -> Directs both standard output 'stdout' and standard
+        #   error 'stderr' into intermal memory buffers instead of streaming them
+        #   live to the active terminal console.
+        #? check: Determines what Python should do if the external program fails.
+        #   - True: Raises 'subprocess.CalledProcessError' and crashes.
+        #   - False: Suppresses automatic crash.
+        #? text: True -> Tells Python to decode the raw binary byte streams into strings.
         result: CompletedProcess = subprocess.run( 
             cmd,
             cwd = self._cfg.build_synth_dir_path,
