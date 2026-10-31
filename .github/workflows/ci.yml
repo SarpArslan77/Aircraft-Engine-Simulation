@@ -21,6 +21,9 @@ on:
     pull_request:
         branches: ["main"]
 
+permissions:
+  contents: read
+
 #? jobs: Workflow containing multiple jobs.
 jobs:
     run-simulation:
