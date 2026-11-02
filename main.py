@@ -1,6 +1,9 @@
 
 #* main.py
 
+#TODO Add various command lines (e.g. todo.py).
+#TODO Add a pre-commit 'pipreqs' library to update the 'requirements.txt'.
+
 #* ======= Libraries =======
 # ------- Natives. -------
 import json
@@ -47,6 +50,9 @@ if __name__ == "__main__":
     if iverilog_bin_dir not in os.environ.get("PATH", ""):
         #? os.pathsep: Gives back the correct seperator for the active OS.
         os.environ["PATH"] = iverilog_bin_dir + os.pathsep + os.environ.get("PATH", "")
+
+    # Silents the Python warning filter in the environment for Cocotb runner.
+    os.environ["PYTHONWARNINGS"] = "ignore::DeprecationWarning"
 
     # ------- Constants. -------
     # Paths.
@@ -115,7 +121,7 @@ if __name__ == "__main__":
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
-    TARGET_PERIOD_NS: float = 10.000
+    TARGET_PERIOD_NS: float = 3.250
     LOW_PERIOD_NS: float = 2.000
     HIGH_PERIOD_NS: float = 10.000
 
@@ -157,7 +163,7 @@ if __name__ == "__main__":
         )
 
     # ------- User-Specifiec Inputs. -------
-    SHOULD_FIND_MAX_FREQ: bool = True
+    SHOULD_FIND_MAX_FREQ: bool = False
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
