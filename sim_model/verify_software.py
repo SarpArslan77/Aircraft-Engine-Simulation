@@ -10,25 +10,78 @@ from numpy.typing import NDArray
 
 #* ======= Software Verifier =======
 class SoftwareVerifier:
+    """
+    Statistical accuracy and numerical noise analyzer for fixed-point quantization verification.
+
+    Evaluates deviation between continuous floating-point golden reference signals and scaled
+    fixed-point simulation trajectories using standard signal processing metrics:
+    Mean Absolute Error (MAE), Maximum Error (ME), Mean Squared Error (MSE), Root-Mean-Squared
+    Error (RMSE), and Signal-to-Quantization-Noise Ratio (SQNR).
+    """
     def __init__(self) -> None:
+        """
+        Initializes the SoftwareVerifier numerical assessment instance.
+
+        Returns:
+            None
+        """
         pass
 
     def _calculate_mae(
             self,
             error: NDArray
     ) -> float:
+        """
+        Calculates the Mean Absolute Error (MAE) between reference and quantized signals.
+
+        Mathematical Formulation:
+        MAE = (1 / N) * sum(|error|)
+
+        Args:
+            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+
+        Returns:
+            float: Mean Absolute Error value across all time samples.
+        """
         return float(np.mean(np.abs(error)))
 
     def _calculate_max_error(
             self,
             error: NDArray
     ) -> float:
+        """
+        Calculates the Maximum Absolute Error (ME) observed across the trajectory.
+
+        Mathematical Formulation:
+        ME = max(|error|)
+
+        Args:
+            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+
+        Returns:
+            float: Peak absolute deviation across the simulation.
+        """
         return float(np.max(np.abs(error)))
 
     def _calculate_mse_and_rmse(
             self,
             error: NDArray
     ) -> tuple[float, float]:
+        """
+        Computes Mean Squared Error (MSE) and Root-Mean-Square Error (RMSE).
+
+        Mathematical Formulations:
+        1. MSE = (1 / N) * sum(error^2)
+        2. RMSE = sqrt(MSE)
+
+        Args:
+            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+
+        Returns:
+            tuple[float, float]: Tuple containing:
+                - mse (float): Mean Squared Error.
+                - rmse (float): Root-Mean-Square Error.
+        """
         # Calculates the MSE and then roots it for RMSE.
         mse = float(np.mean(error**2))
 
@@ -41,6 +94,22 @@ class SoftwareVerifier:
             original_signal: NDArray,
             error: NDArray
     ) -> float:
+        """
+        Calculates the Signal-to-Quantization-Noise Ratio (SQNR) in decibels (dB).
+
+        Measures signal degradation introduced by fixed-point wordlength truncation.
+        Safely handles zero-power edge cases by returning +/- infinity.
+
+        Mathematical Formulation:
+        SQNR = 10 * log10(sum(signal^2) / sum(error^2)) [dB]
+
+        Args:
+            original_signal (NDArray): Baseline continuous floating-point golden reference signal array.
+            error (NDArray): Residual quantization error array (original_signal - quantized_signal).
+
+        Returns:
+            float: Signal-to-Quantization-Noise Ratio in decibels [dB], or +/-inf on edge cases.
+        """
         # ------- Calculates SQNR. -------
         # Calculates the signals powers.
         original_signal_power: NDArray = original_signal ** 2
@@ -64,6 +133,20 @@ class SoftwareVerifier:
             error: NDArray,
             state_name: str
     ) -> None:
+        """
+        Evaluates and prints all numerical precision and quantization error metrics for a state.
+
+        Computes MAE, ME, MSE, RMSE, and SQNR for the given state trajectory and prints a formatted
+        summary to standard output for verification auditing.
+
+        Args:
+            original_signal (NDArray): Continuous floating-point reference signal array.
+            error (NDArray): Residual error array (original_signal - quantized_scaled_signal).
+            state_name (str): Descriptive identifier of the engine state (e.g., 'Rotational Speed').
+
+        Returns:
+            None
+        """
         # Calculates different metrics and logs them.
         # Mean Absolute Error (MAE).
         mae: float = self._calculate_mae(error = error)

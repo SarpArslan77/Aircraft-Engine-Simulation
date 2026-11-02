@@ -9,6 +9,26 @@ import shutil
 from pathlib import Path
 
 def locate_iverilog_executable(hardcoded_iverilog_path: Path | None = None) -> Path:
+    """
+    Performs a multi-tier search to locate the Icarus Verilog ('iverilog') executable binary.
+
+    The search hierarchy checks:
+    1. System 'PATH' environment variable via shell lookup.
+    2. The 'IVERILOG_HOME' environment variable.
+    3. Standard operating system installation paths (Windows and Linux).
+    4. An optional user-specified hardcoded fallback directory or binary path.
+
+    Args:
+        hardcoded_iverilog_path (Path | None): Optional filesystem path to an Icarus Verilog
+            binary or installation directory to use as a final fallback. Defaults to None.
+
+    Raises:
+        FileNotFoundError: If the 'iverilog' executable cannot be resolved across any
+            of the search tiers, with troubleshooting advice for Windows, Linux, and macOS.
+
+    Returns:
+        Path: Absolute filesystem path to the located 'iverilog' executable.
+    """
     # ------- Layer-wise Search of Iverilog Executable. -------
     # Finds out the OS.
     if (os.name == "nt"):

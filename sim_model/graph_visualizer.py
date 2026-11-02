@@ -19,6 +19,52 @@ from numpy.typing import NDArray
 #* ======= Graph Visualizer's Config Dataclass =======
 @dataclass(frozen = True)
 class ConfigGraphVisualizer:
+    """
+    Configuration dataclass defining styling and threshold parameters for telemetry plots.
+
+    Encapsulates Matplotlib rendering styles (colors, linestyles, linewidths, and alphas)
+    for side-by-side floating-point and fixed-point telemetry comparison, as well as
+    annotations for physical failure markers.
+
+    Attributes:
+        fuel_flow_floating_linestyle (str): Linestyle for floating-point fuel flow curve.
+        fuel_flow_floating_color (str): Matplotlib color string for floating-point fuel flow.
+        fuel_flow_floating_linewidth (float): Line width for floating-point fuel flow curve.
+        fuel_flow_fixed_point_linestyle (str): Linestyle for fixed-point fuel flow curve.
+        fuel_flow_fixed_point_color (str): Matplotlib color string for fixed-point fuel flow.
+        fuel_flow_fixed_point_linewidth (float): Line width for fixed-point fuel flow curve.
+        speed_floating_linestyle (str): Linestyle for floating-point rotational speed curve.
+        speed_floating_color (str): Matplotlib color string for floating-point rotational speed.
+        speed_floating_linewidth (float): Line width for floating-point rotational speed curve.
+        speed_fixed_point_linestyle (str): Linestyle for fixed-point rotational speed curve.
+        speed_fixed_point_color (str): Matplotlib color string for fixed-point rotational speed.
+        speed_fixed_point_linewidth (float): Line width for fixed-point rotational speed curve.
+        fuel_flow_and_speed_grid_linestyle (str): Linestyle for fuel flow and speed subplot grid.
+        fuel_flow_and_speed_grid_alpha (float): Opacity alpha factor for fuel flow and speed grid.
+        pressure_floating_linestyle (str): Linestyle for floating-point compressor pressure curve.
+        pressure_floating_color (str): Matplotlib color string for floating-point compressor pressure.
+        pressure_floating_linewidth (float): Line width for floating-point compressor pressure curve.
+        pressure_fixed_point_linestyle (str): Linestyle for fixed-point compressor pressure curve.
+        pressure_fixed_point_color (str): Matplotlib color string for fixed-point compressor pressure.
+        pressure_fixed_point_linewidth (float): Line width for fixed-point compressor pressure curve.
+        pressure_grid_linestyle (str): Linestyle for compressor pressure subplot grid.
+        pressure_grid_alpha (float): Opacity alpha factor for compressor pressure grid.
+        temperature_floating_linestyle (str): Linestyle for floating-point exhaust temperature curve.
+        temperature_floating_color (str): Matplotlib color string for floating-point exhaust temperature.
+        temperature_floating_linewidth (float): Line width for floating-point exhaust temperature curve.
+        temperature_fixed_point_linestyle (str): Linestyle for fixed-point exhaust temperature curve.
+        temperature_fixed_point_color (str): Matplotlib color string for fixed-point exhaust temperature.
+        temperature_fixed_point_linewidth (float): Line width for fixed-point exhaust temperature curve.
+        temperature_grid_linestyle (str): Linestyle for exhaust temperature subplot grid.
+        temperature_grid_alpha (float): Opacity alpha factor for exhaust temperature grid.
+        max_speed (float): Rotational speed threshold above which an engine overspeed failure occurs [%].
+        engine_failure_line_color (str): Color of the vertical marker indicating engine failure.
+        engine_failure_line_linestyle (str): Linestyle of the vertical engine failure marker.
+        engine_failure_line_linewidth (float): Line width of the vertical engine failure marker.
+        engine_failure_text_color (str): Color of the failure annotation label.
+        engine_failure_text_fontsize (int): Font size for the failure annotation label.
+        engine_failure_text_fontweight (str): Font weight for the failure annotation label.
+    """
     # ------- Plot Attributes. -------
     # Fuel Flow and Speed (Floating).
     fuel_flow_floating_linestyle: str
@@ -87,10 +133,32 @@ class ConfigGraphVisualizer:
 histories_type = tuple[NDArray[float64 | int64], NDArray[float64 | int64], NDArray[float64 | int64], NDArray[float64 | int64]]
 
 class GraphVisualizer:
+    """
+    Interactive telemetry visualizer for engine simulation histories.
+
+    Constructs dedicated Matplotlib subplots for engine operational states:
+    1. Fuel Flow and Rotational Speed over time.
+    2. Compressor Pressure over time.
+    3. Exhaust Gas Temperature (EGT) over time.
+
+    Integrates interactive checkbox widgets to selectively toggle continuous floating-point
+    reference traces and quantized fixed-point responses independently, and detects and marks
+    structural failure boundary events.
+    """
     def __init__(
             self,
             config_graph_visualizer: ConfigGraphVisualizer
     ) -> None:
+        """
+        Initializes the GraphVisualizer with rendering and styling parameters.
+
+        Args:
+            config_graph_visualizer (ConfigGraphVisualizer): Configuration dataclass containing
+                visual parameters, line properties, grid styles, and failure criteria.
+
+        Returns:
+            None
+        """
         self._cfg: ConfigGraphVisualizer = config_graph_visualizer
 
         # Stores active checkbox references to prevent garbage collection.
@@ -117,6 +185,30 @@ class GraphVisualizer:
 
             legend_loc: str
     ) -> Line2D:
+        """
+        Plots a state trajectory array onto a specified Matplotlib axis with styling configurations.
+
+        Configures label identifiers, color, line styles, axis titles, labels, optional grid lines,
+        and sets legend placement.
+
+        Args:
+            ax (Axes): Target Matplotlib axis object to plot onto.
+            time_history (NDArray[float64]): Array of simulation time points [s].
+            data_history (NDArray[float64 | int64]): Logged physical or scaled state telemetry values.
+            data_label (str): Label string for legend display.
+            data_linestyle (str): Line style pattern (e.g., '-', '--', ':').
+            data_color (str): Matplotlib color identifier string.
+            data_linewidth (float): Line stroke width.
+            ax_title (str): Subplot title string (empty string to omit).
+            ax_xlabel (str): Horizontal axis label string (empty string to omit).
+            ax_ylabel (str): Vertical axis label string (empty string to omit).
+            grid_linestyle (str): Grid line style pattern (empty string to omit grid).
+            grid_alpha (float): Opacity factor for the background grid lines.
+            legend_loc (str): Legend positioning string (e.g., 'upper right', 'lower right').
+
+        Returns:
+            Line2D: The constructed 2D line plot object.
+        """
         # Plots the data on the provided axes.
         line, = ax.plot(
             time_history,
@@ -154,6 +246,20 @@ class GraphVisualizer:
             time_history: NDArray[float64],
             axes: list[Axes]
     ) -> None:
+        """
+        Draws vertical failure marker lines and text annotations across all telemetry axes.
+
+        Locates the exact simulation timestamp where engine limits were first breached
+        and renders a vertical threshold line and descriptive label across the supplied subplots.
+
+        Args:
+            failure_indices (NDArray[int64]): Indices of simulation steps where engine speed exceeded max_speed.
+            time_history (NDArray[float64]): Array of physical simulation timestamps in seconds.
+            axes (list[Axes]): List of active Matplotlib subplot axes to annotate.
+
+        Returns:
+            None
+        """
         first_failure_idx = int(failure_indices[0][0])
         failure_time: float = time_history[first_failure_idx]
 
@@ -189,6 +295,21 @@ class GraphVisualizer:
             fixed_point_lines: list[Line2D],
             fig: Figure
     ) -> None:
+        """
+        Callback handler updating line visibility when display mode checkboxes are toggled.
+
+        Queries checkbox states and toggles visibility of floating-point and fixed-point
+        Line2D traces dynamically without requiring a full figure redraw.
+
+        Args:
+            checkbox (CheckButtons): Interactive Matplotlib CheckButtons widget instance.
+            floating_lines (list[Line2D]): Traces associated with floating-point reference data.
+            fixed_point_lines (list[Line2D]): Traces associated with fixed-point model data.
+            fig (Figure): Target Matplotlib figure to refresh.
+
+        Returns:
+            None
+        """
         # Queries the updated state of both checkboxes.
         floating_active, fixed_active = checkbox.get_status()
 
@@ -211,6 +332,21 @@ class GraphVisualizer:
             floating_lines: list[Line2D],
             fixed_point_lines: list[Line2D]
     ) -> CheckButtons:
+        """
+        Instantiates interactive CheckButtons widgets on a dedicated figure axis.
+
+        Configures check states for 'Floating' and 'Fixed Point' traces and binds visibility
+        toggle callbacks to the associated plot lines.
+
+        Args:
+            fig (Figure): Target Matplotlib figure owning the axes.
+            ax (Axes): Dedicated manual axis reserved for the checkbox widget.
+            floating_lines (list[Line2D]): List of plotted lines representing floating-point traces.
+            fixed_point_lines (list[Line2D]): List of plotted lines representing fixed-point traces.
+
+        Returns:
+            CheckButtons: The initialized interactive checkbox controller instance.
+        """
         # 'CheckButtons' allow checkboxes to toggle individual modes.
         # ? actives: Initial check state of the buttons.
         checkbox = CheckButtons(
@@ -240,6 +376,29 @@ class GraphVisualizer:
 
             show_plots: bool
     ) -> None:
+        """
+        Constructs and renders the full multi-window engine telemetry inspection dashboard.
+
+        Plots side-by-side comparative curves for continuous floating-point and scaled fixed-point
+        simulations across three independent figures:
+        - Fuel Flow & Rotational Speed
+        - Compressor Pressure
+        - Exhaust Gas Temperature
+
+        Configures interactive visibility checkboxes for both data modes, attaches failure
+        event markers if operational limits were breached, and optionally displays plots via GUI.
+
+        Args:
+            histories_floating (histories_type): 4-tuple of floating-point reference arrays
+                (fuel_flow, speed, pressure, temperature).
+            histories_fixed_point_scaled (histories_type): 4-tuple of scaled fixed-point arrays
+                (fuel_flow, speed, pressure, temperature).
+            time_history (NDArray[float64]): Physical simulation time steps in seconds.
+            show_plots (bool): Flag indicating whether to invoke plt.show() to block and display UI.
+
+        Returns:
+            None
+        """
         # Unpacks the fuel flow and speed histories.
         fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating = histories_floating
         fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point = histories_fixed_point_scaled

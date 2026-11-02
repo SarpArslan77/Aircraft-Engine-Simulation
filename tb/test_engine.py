@@ -49,20 +49,27 @@ from pandas import DataFrame
 @dataclass(frozen = True)
 class ConfigEngineTester:
     """
-    Configuration dataclass holding memory-mapped register address offsets.
+    Configuration dataclass holding memory-mapped register offsets and verification parameters.
 
-    Defines the standard 32-bit Control and Status Register (CSR) bus offsets
-    used by the Cocotb verification harness to communicate with the hardware
-    register interface over standard VPI.
+    Defines the 32-bit Control and Status Register (CSR) bus byte offsets, simulation time steps,
+    bit-width formats, safety thresholds, and test durations used by the Cocotb testbench harness.
 
     Attributes:
-        addr_control (int): Byte address offset for the primary Engine Control Register (0x00).
+        addr_control (int): Byte address offset for the Engine Control Register (0x00).
         addr_status (int): Byte address offset for the read-only Safety Status Register (0x04).
-        addr_fuel_flow_command (int): Byte address offset for the commanded Fuel Flow Register in Q16.16 format (0x08).
-        addr_speed (int): Byte address offset for reading the telemetry Rotational Speed Register in Q16.16 format (0x0C).
-        addr_pressure (int): Byte address offset for reading the telemetry Compressor Pressure Register in Q16.16 format (0x10).
-        addr_temperature (int): Byte address offset for reading the telemetry Exhaust Gas Temperature Register in Q16.16 format (0x14).
-        addr_fault_injection (int): Byte address offset for activating internal hardware fault-injection bits (0x18).
+        addr_fuel_flow_command (int): Byte address offset for Commanded Fuel Flow in Q16.16 format (0x08).
+        addr_speed (int): Byte address offset for Rotational Speed telemetry in Q16.16 format (0x0C).
+        addr_pressure (int): Byte address offset for Compressor Pressure telemetry in Q16.16 format (0x10).
+        addr_temperature (int): Byte address offset for Exhaust Gas Temperature telemetry in Q16.16 format (0x14).
+        addr_fault_injection (int): Byte address offset for Hardware Fault-Injection Register (0x18).
+        software_results_file_path_str (str): Path string to the golden reference CSV dataset.
+        simulation_step (float): Discrete integration step size (dt) in seconds [s].
+        total_simulation_time (float): Total physical duration of the reference verification cycle [s].
+        fractional_bit_width (int): Number of fractional bits used in fixed-point representation.
+        max_compressor_temperature (int): Maximum safe temperature limit before emergency trip [°C].
+        smoke_test_duration (float): Physical simulation duration for the sanity smoke test [s].
+        compressor_stall_test_duration (float): Pre-fault run duration for compressor stall test [s].
+        max_thermal_threshold_cross_duration (float): Maximum timeout duration for thermal trip [s].
     """
 
     # ------- Address Map Offsets. -------
@@ -92,19 +99,27 @@ class ConfigEngineTester:
 
 #* ======= Aircraft Engine Tester =======
 class EngineTester:
+    """
+    Cocotb verification testbench harness for the synthesizable aircraft engine RTL core.
+
+    Interfaces with the Device Under Test (DUT) using an AXI4-Lite master bus agent to drive
+    control commands, inject hardware faults, sample telemetry registers, and execute cycle-accurate
+    hardware-in-the-loop (HIL) verification against Python golden reference models.
+    """
     def __init__(
             self,
             config_engine_tester: ConfigEngineTester
     ) -> None:
         """
-        Initializes the EngineTester verification harness with memory map configurations.
+        Initializes the EngineTester verification harness with testbench configurations.
 
         Args:
-            config_engine_tester (ConfigEngineTester): 
-                The configuration dataclass instance specifying the register interface 
-                memory-mapped address offsets.
-        """
+            config_engine_tester (ConfigEngineTester): Configuration dataclass specifying register
+                address offsets, simulation step intervals, bit widths, and test execution limits.
 
+        Returns:
+            None
+        """
         self._cfg: ConfigEngineTester = config_engine_tester
 
     #? async: Defines a coroutine function.
@@ -113,6 +128,22 @@ class EngineTester:
             dut: SimHandleBase,
             axil_master: AxiLiteMaster
     ) -> None:
+        """
+        Applies an active-low synchronous reset sequence and verifies baseline register health.
+
+        Drives s_axi_aresetn low for 5 clock cycles, releases reset high for 5 clock cycles,
+        and reads the status register via AXI4-Lite to confirm normal operational readiness.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            axil_master (AxiLiteMaster): Cocotb AXI4-Lite master bus controller instance.
+
+        Raises:
+            AssertionError: If the status register read after reset returns non-zero.
+
+        Returns:
+            None
+        """
         # Resets the device.
         dut.s_axi_aresetn.value = 0
         await ClockCycles(
@@ -148,6 +179,19 @@ class EngineTester:
             axil_master: AxiLiteMaster,
             dut: SimHandleBase
     ) -> None:
+        """
+        Commands engine ignition over AXI4-Lite and synchronizes to the next integration domain clock.
+
+        Writes to the control register asserting the start_engine bit (Bit 0) and pauses execution
+        until the prescaled domain clock enable pulse (clk_en_1ms) is asserted.
+
+        Args:
+            axil_master (AxiLiteMaster): Cocotb AXI4-Lite master bus controller instance.
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+
+        Returns:
+            None
+        """
         # Starts the engine.
         await axil_master.write(
             address = self._cfg.addr_control,
@@ -173,27 +217,23 @@ class EngineTester:
         """
         Executes an end-to-end basic functional sanity and smoke test sequence on the RTL engine.
 
-        The test sequence verifies baseline hardware functionality:
-        1. Instantiates and launches an asynchronous 100 MHz simulation clock (10 ns period).
-        2. Applies an active-high synchronous reset sequence for 5 clock cycles.
-        3. Polls the engine status register to confirm baseline healthy operational state (status = 0).
-        4. Writes a 10 kg/h idle fuel flow command in fixed-point Q16.16 format and verifies loopback read.
-        5. Commands engine ignition by asserting Bit 0 of the Control Register (start_engine).
-        6. Advances discrete simulation time across 50 clock cycles to allow Euler integration.
-        7. Reads back real-time engine telemetry (Speed, Pressure, Temperature) via the bus,
-           scales the raw Q16.16 integers back to engineering units, and logs formatted output.
+        Verification Steps:
+        1. Starts an asynchronous 100 MHz clock (10 ns period) on s_axi_aclk.
+        2. Applies synchronous active-low reset and confirms initial zero status.
+        3. Performs a loopback write/read check on the commanded fuel flow register.
+        4. Commands engine ignition via the control register.
+        5. Advances time across the configured smoke test duration via clk_en_1ms pulses.
+        6. Reads and logs scaled real-time telemetry (Speed, Pressure, Temperature).
 
         Args:
             dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
 
         Raises:
-            AssertionError: If initial status is non-zero or if the fuel command register
-                            fails to store and return the commanded fixed-point value.
+            AssertionError: If reset status is non-zero or the fuel flow register fails loopback.
 
         Returns:
             None
         """
-
         #? cocotb.start_soon(): Task scheduler, launches an asynchronous coroutine
         #   in the background (concurenntly).
         # Starts a 100 MhZ clock (10 ns period).
@@ -316,6 +356,28 @@ class EngineTester:
             self,
             dut: SimHandleBase
     ) -> None:
+        """
+        Executes a bit-for-bit cycle-accurate verification test against the software reference model.
+
+        Verification Steps:
+        1. Resets the DUT and commands engine ignition via AXI4-Lite.
+        2. Loads the golden reference trajectory dataset from the software results CSV file.
+        3. Steps synchronously through every discrete time interval:
+        - Writes commanded fuel flow into the hardware register via AXI4-Lite.
+        - Waits for the 1 ms discrete solver tick (clk_en_1ms).
+        - Reads hardware telemetry registers (Speed, Pressure, Temperature, Status).
+        - Asserts that hardware outputs match golden reference values within quantization tolerance.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+
+        Raises:
+            AssertionError: If any hardware telemetry state diverges by 2 or more LSBs from the
+                golden reference dataset, or if the emergency trip status flag mismatches.
+
+        Returns:
+            None
+        """
         # Starts a 100 MhZ clock.
         cocotb.start_soon(
             Clock(dut.s_axi_aclk, 10, "ns").start()
@@ -437,6 +499,27 @@ class EngineTester:
             self,
             dut: SimHandleBase
     ) -> None:
+        """
+        Executes a safety-critical fault injection test simulating a turbine compressor stall.
+
+        Verification Steps:
+        1. Resets and ignites the engine, commanding high military fuel flow (90 kg/h).
+        2. Allows the engine to stabilize into a steady running state.
+        3. Writes to the fault-injection register asserting Bit 0 (fault_compressor_stall, K_cool -> 0).
+        4. Monitors real-time exhaust gas temperature until it breaches max_compressor_temperature.
+        5. Reads the status register and verifies the supervisory FSM entered the EMERGENCY trip state.
+
+        Args:
+            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+
+        Raises:
+            AssertionError: If register loopback fails or the status register fails to flag broken state.
+            TimeoutError: If exhaust temperature fails to exceed the safety threshold within
+                the maximum timeout cycle window.
+
+        Returns:
+            None
+        """
         # Starts a 100 MhZ clock.
         cocotb.start_soon(
             Clock(dut.s_axi_aclk, 10, "ns").start()
@@ -565,6 +648,16 @@ class EngineTester:
 #* ======= Helper Functions =======
 # ------- JSON Loader. -------
 def load_config() -> dict[str, Any]:
+    """
+    Loads and parses the testbench JSON configuration file.
+
+    Resolves the configuration file path relative to the test directory to ensure
+    consistent loading regardless of whether the simulator changes the working directory.
+
+    Returns:
+        dict[str, Any]: Parsed configuration dictionary mapping test module stems
+            to their respective parameter dictionaries.
+    """
     # Imports the JSON file.
     #? When Cocotb executes the tests through the runner, it switches the
     #   current working directory to the simulators output folder 'sim_build'.
@@ -589,12 +682,12 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     """
     Cocotb entry point test case verifying RTL engine synthesis sanity and bus connectivity.
 
-    Sets up the register map configuration, instantiates the EngineTester testbench harness,
-    and coordinates execution of the basic functional smoke test through the Cocotb scheduler.
+    Loads configuration parameters, initializes the EngineTester harness, and executes
+    the basic operational smoke test sequence through the Cocotb task scheduler.
 
     Args:
-        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module 
-                            ('aircraft_engine_simulator_top') injected by Cocotb.
+        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+            ('aircraft_engine_simulator_top') injected by Cocotb.
 
     Returns:
         None
@@ -615,6 +708,19 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
 
 @cocotb.test()
 async def test_engine_golden_reference(dut: SimHandleBase) -> None:
+    """
+    Cocotb entry point test case verifying hardware telemetry against golden software traces.
+
+    Executes a full mission throttle cycle step-by-step, validating that the synthesizable
+    Verilog Euler integrator reproduces the Python fixed-point model within strict bit tolerances.
+
+    Args:
+        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+            ('aircraft_engine_simulator_top') injected by Cocotb.
+
+    Returns:
+        None
+    """
     # Loads the config file.
     config: dict[str, Any] = load_config()
     
@@ -630,6 +736,19 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
 
 @cocotb.test()
 async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
+    """
+    Cocotb entry point test case verifying safety shutdown logic under fault injection.
+
+    Commands maximum throttle, triggers a virtual compressor stall fault via AXI4-Lite,
+    and verifies thermal runaway detection and automatic emergency fuel cut-off FSM tripping.
+
+    Args:
+        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+            ('aircraft_engine_simulator_top') injected by Cocotb.
+
+    Returns:
+        None
+    """
     # Loads the config file.
     config: dict[str, Any] = load_config()
 

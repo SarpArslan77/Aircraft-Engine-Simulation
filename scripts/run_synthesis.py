@@ -36,11 +36,35 @@ class SynthesisRunner:
         self,
         config_synthesis_runner: ConfigSynthesisRunner
     ) -> None:
+        """
+        Initializes the SynthesisRunner with synthesis paths and execution configurations.
+
+        Args:
+            config_synthesis_runner (ConfigSynthesisRunner): Configuration dataclass holding
+                project paths, output directories, script locations, and optional Vivado binary path.
+
+        Returns:
+            None
+        """
         self._cfg: ConfigSynthesisRunner = config_synthesis_runner
 
     def _locate_vivado_executable(
             self
     ) -> Path:
+        """
+        Performs a multi-tier search to locate the AMD/Xilinx Vivado batch executable.
+
+        The search hierarchy checks:
+        1. System 'PATH' environment variable via shell lookup.
+        2. The 'XILINX_VIVADO' environment variable.
+        3. Standard Xilinx installation roots (e.g., 'C:/Xilinx/Vivado', '/tools/Xilinx/Vivado')
+        across discovered installed version subdirectories.
+        4. Fallback to the hardcoded path configured in ConfigSynthesisRunner.
+
+        Returns:
+            Path: Filesystem path to the resolved Vivado executable ('vivado.bat' on Windows
+                or 'vivado' on POSIX systems).
+        """
         # ------- Layer-wise Search of Vivado Executable. -------
         # Finds out the OS.
         #? os.name == "nt": Checks if the OS is Windows.
@@ -92,6 +116,35 @@ class SynthesisRunner:
             self,
             target_period_ns: float
     ) -> dict[str, Any]:
+        """
+        Parses Vivado utilization and Static Timing Analysis (STA) reports into structured metrics.
+
+        Extracts hardware utilization (Slice LUTs, Flip-Flops, DSP48 slices) and Static
+        Timing Analysis metrics (Target Clock Period, Frequency, Worst Negative Slack, and
+        maximum achievable frequency F_max) using regular expressions.
+
+        Args:
+            target_period_ns (float): Target clock constraint period in nanoseconds applied
+                during the synthesis run.
+
+        Returns:
+            dict[str, Any]: Parsed metrics dictionary containing:
+                - device (str): Target FPGA silicon part name.
+                - lut_used (int): Number of LUTs utilized.
+                - lut_avail (int): Total available LUTs on device.
+                - lut_util (float): Percentage of LUT resources utilized.
+                - ff_used (int): Number of Slice Registers / Flip-Flops utilized.
+                - ff_avail (int): Total available registers on device.
+                - ff_util (float): Percentage of register resources utilized.
+                - dsp_used (int): Number of DSP48 slices utilized.
+                - dsp_avail (int): Total available DSP48 slices on device.
+                - dsp_util (float): Percentage of DSP slices utilized.
+                - target_period_ns (float): Target clock period constraint in nanoseconds.
+                - target_freq_mhz (float): Target clock frequency in megahertz.
+                - wns (float): Worst Negative Slack in nanoseconds.
+                - f_max_mhz (float): Maximum achievable operating clock frequency in megahertz.
+                - timing_met (bool): True if WNS >= 0.0 ns, False if timing violation occurred.
+        """
         # Initializes the report paths and the metrics dictionary.
         utilization_report_file_path: Path = self._cfg.build_synth_dir_path / "utilization.rpt"
         timing_report_file_path: Path = self._cfg.build_synth_dir_path / "timing.rpt"
@@ -224,6 +277,20 @@ class SynthesisRunner:
         self,
         metrics: dict[str, Any]
     ) -> None:
+        """
+        Updates the FPGA benchmark table in the repository's README.md with fresh synthesis results.
+
+        Locates the Markdown benchmark block delimited by '<!-- SYNTH_TABLE_START -->' and
+        '<!-- SYNTH_TABLE_END -->' tags and replaces it in-place with an updated Markdown table
+        reflecting current resource utilization, achieved F_max, and timing closure status.
+
+        Args:
+            metrics (dict[str, Any]): Dictionary containing parsed hardware utilization
+                and timing performance metrics.
+
+        Returns:
+            None
+        """
         if not self._cfg.readme_file_path.exists():
             print(f"Warning: '{self._cfg.readme_file_path}' not found. Skipping README update.")
             return
@@ -277,6 +344,19 @@ class SynthesisRunner:
         metrics: dict[str, Any],
         should_print_metrics_summary: bool
     ) -> None:
+        """
+        Prints a formatted terminal summary report of the synthesis utilization and timing results.
+
+        Displays device part number, logic slice utilization percentages, DSP slice count,
+        target clock constraint, Worst Negative Slack (WNS), and timing closure status.
+
+        Args:
+            metrics (dict[str, Any]): Dictionary containing parsed hardware metrics from Vivado reports.
+            should_print_metrics_summary (bool): Flag indicating whether the summary should be displayed.
+
+        Returns:
+            None
+        """
         timing_str = "TIMING CLOSED (PASS)" if metrics.get("timing_met") else "TIMING VIOLATION (FAIL)"
         print()
         print(f" VIVADO OUT-OF-CONTEXT SYNTHESIS & TIMING REPORT  [Device: {metrics.get('device')}]")
@@ -292,6 +372,31 @@ class SynthesisRunner:
         target_period_ns: float,
         should_update_readme: bool
     ) -> float:
+        """
+        Executes AMD/Xilinx Vivado in batch mode to perform Out-of-Context (OOC) synthesis and implementation.
+
+        The execution workflow:
+        1. Resolves the active Vivado executable binary path.
+        2. Invokes Vivado in non-project batch mode executing the specified Tcl script with
+        the target clock period constraint.
+        3. Captures and checks subprocess output, halting execution upon toolchain error.
+        4. Moves stray scratch files generated during synthesis into the build directory.
+        5. Parses utilization ('utilization.rpt') and timing ('timing.rpt') reports.
+        6. Optionally logs a formatted terminal summary and updates 'README.md' benchmark tables.
+
+        Args:
+            target_period_ns (float): Target clock period constraint in nanoseconds passed
+                as an argument to the Tcl synthesis script.
+            should_update_readme (bool): Flag indicating whether to output the console summary
+                and update the repository's 'README.md' benchmark table.
+
+        Raises:
+            RuntimeError: If Vivado execution fails, encounters syntax/licensing errors,
+                or exits with a non-zero exit code.
+
+        Returns:
+            float: Worst Negative Slack (WNS) value in nanoseconds extracted from Static Timing Analysis.
+        """
         vivado_path: Path = self._locate_vivado_executable()
 
         # Vivado batch mode command.

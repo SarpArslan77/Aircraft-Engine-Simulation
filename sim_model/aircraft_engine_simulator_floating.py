@@ -98,17 +98,28 @@ class ConfigAircraftEngineSimulatorFloating:
 values_type = tuple[float, float, float]
 
 class AircraftEngineSimulatorFloating:
+    """
+    Continuous floating-point reference simulator for a single-spool turbojet engine.
+
+    Solves non-linear continuous thermodynamic and mechanical differential equations across
+    discrete time steps using 64-bit floating-point arithmetic and first-order forward Euler
+    integration. Acts as the golden mathematical baseline to quantify fixed-point quantization
+    noise, Root Mean Square Error (RMSE), and Signal-to-Quantization-Noise Ratio (SQNR).
+    """
     def __init__(
             self,
             config_aircraft_engine_simulator_floating: ConfigAircraftEngineSimulatorFloating
     ) -> None:
         """
-        Initializes the AircraftEngineSimulatorFloating with the specified continuous configuration.
+        Initializes the AircraftEngineSimulatorFloating with continuous system parameters.
 
         Args:
-            config_aircraft_engine_simulator_floating (ConfigAircraftEngineSimulatorFloating): 
-                The configuration dataclass holding the continuous system attributes,
-                environmental constants, limits, and step parameters.
+            config_aircraft_engine_simulator_floating (ConfigAircraftEngineSimulatorFloating):
+                Configuration dataclass holding continuous physical constants, ambient conditions,
+                aerodynamic and mechanical time constants (tau), physical gains, and safety bounds.
+
+        Returns:
+            None
         """
         self._cfg: ConfigAircraftEngineSimulatorFloating = config_aircraft_engine_simulator_floating
         
@@ -117,18 +128,18 @@ class AircraftEngineSimulatorFloating:
             k: float
     ) -> float:
         """
-        Determines and returns the physical fuel flow rate based on the current simulation time.
+        Evaluates the physical commanded fuel flow rate based on simulation time.
 
-        The fuel flow profile maps a scheduled operational engine run profile over time:
+        Maps a continuous operational engine mission schedule:
         - Idle: 10.0 kg/h for t < 2.0 s
         - Throttle Slam (Rapid Acceleration): 90.0 kg/h for 2.0 s <= t < 18.0 s
         - Throttle Chop (Deceleration): 10.0 kg/h for t >= 18.0 s
 
         Args:
-            k (float): The current simulation time in seconds.
+            k (float): Current physical simulation time in seconds.
 
         Returns:
-            float: The actual fuel flow rate (W_f) in kg/h.
+            float: Commanded fuel flow rate (W_f) in engineering units [kg/h].
         """
         fuel_flow: float | None = None
 
@@ -155,31 +166,30 @@ class AircraftEngineSimulatorFloating:
             gain_constants: tuple[float, float, float, float]
     ) -> values_type:
         """
-        Calculates the continuous target values for engine rotational speed, compressor
-        pressure, and exhaust gas temperature based on instantaneous inputs.
+        Calculates the continuous target steady-state values for all engine states.
 
-        Mathematical Equations:
-        1) Target Rotational Speed:
-           N_target[k] = K_N * W_f[k]
-        2) Target Compressor Pressure:
-           P_target[k] = P_amb + (K_P * (N[k])^2)
-        3) Target Exhaust Gas Temperature:
-           T_target[k] = T_amb + (K_heat * W_f[k]) - (K_cool * N[k])
+        Mathematical Formulations:
+        1. Target Rotational Speed:
+        N_target = K_N * W_f
+        2. Target Compressor Pressure:
+        P_target = P_amb + (K_P * (N^2))
+        3. Target Exhaust Gas Temperature:
+        T_target = T_amb + (K_heat * W_f) - (K_cool * N)
 
         Args:
-            current_fuel_flow (float): Current physical fuel flow rate (W_f).
-            current_speed (float): Current engine rotational speed (N).
-            gain_constants (tuple[float, float, float, float]): A tuple containing:
-                - speed_gain_coefficient (float): K_N (Speed Gain Coefficient)
-                - compressor_pressure_gain (float): K_P (Compressor Pressure Gain)
-                - combustion_heat_gain (float): K_heat (Combustion Heat Gain)
-                - mass_overflow_cooling_gain (float): K_cool (Mass-Airflow Cooling Gain)
+            current_fuel_flow (float): Commanded fuel flow rate (W_f) [kg/h].
+            current_speed (float): Current engine rotational speed (N) [%].
+            gain_constants (tuple[float, float, float, float]): Tuple of continuous physical gains:
+                - speed_gain_coefficient (float): K_N speed gain coefficient [% / (kg/h)].
+                - compressor_pressure_gain (float): K_P pressure gain coefficient [kPa / %^2].
+                - combustion_heat_gain (float): K_heat combustion heat coefficient [°C / (kg/h)].
+                - mass_overflow_cooling_gain (float): K_cool airflow cooling coefficient [°C / %].
 
         Returns:
-            values_type: A tuple containing:
-                - target_rotational_speed (float): Target rotational speed (N_target).
-                - target_compressor_pressure (float): Target compressor pressure (P_target).
-                - target_exhaust_gas_temperature (float): Target exhaust gas temperature (T_target).
+            values_type: Tuple containing continuous target values:
+                - target_rotational_speed (float): Target rotational speed (N_target) [%].
+                - target_compressor_pressure (float): Target compressor pressure (P_target) [kPa].
+                - target_exhaust_gas_temperature (float): Target exhaust temperature (T_target) [°C].
         """
         # Unpacks the gain constants.
         speed_gain_coefficient, compressor_pressure_gain,combustion_heat_gain, mass_overflow_cooling_gain = gain_constants
@@ -202,32 +212,22 @@ class AircraftEngineSimulatorFloating:
             target_values: values_type
     ) -> values_type:
         """
-        Calculates the physical time derivatives (rates of change) for engine rotational speed,
-        compressor pressure, and exhaust gas temperature using inertia time constants.
+        Calculates continuous time derivatives (rates of change) using physical time constants.
 
-        Mathematical Equations:
-        1) Rotational Speed Rate of Change:
-           dN/dt = (1 / tau_N) * (N_target - N)
-        2) Compressor Pressure Rate of Change:
-           dP/dt = (1 / tau_P) * (P_target - P)
-        3) Exhaust Gas Temperature Rate of Change:
-           dT/dt = (1 / tau_T) * (T_target - T)
+        Mathematical Formulations:
+        1. dN/dt = (1 / tau_N) * (N_target - N)
+        2. dP/dt = (1 / tau_P) * (P_target - P)
+        3. dT/dt = (1 / tau_T) * (T_target - T)
 
         Args:
-            current_values (values_type): A tuple containing:
-                - current_rotational_speed (float): Current rotational speed (N).
-                - current_compressor_pressure (float): Current compressor pressure (P).
-                - current_exhaust_gas_temperature (float): Current exhaust gas temperature (T).
-            target_values (values_type): A tuple containing:
-                - target_rotational_speed (float): Target rotational speed (N_target).
-                - target_compressor_pressure (float): Target compressor pressure (P_target).
-                - target_exhaust_gas_temperature (float): Target exhaust gas temperature (T_target).
+            current_values (values_type): Tuple of current engine states (N, P, T) in engineering units.
+            target_values (values_type): Tuple of target steady-state values (N_target, P_target, T_target).
 
         Returns:
-            values_type: A tuple containing the calculated derivatives:
-                - d_rotational_speed (float): Rotational speed derivative (dN/dt).
-                - d_compressor_pressure (float): Compressor pressure derivative (dP/dt).
-                - d_exhaust_gas_temperature (float): Exhaust gas temperature derivative (dT/dt).
+            values_type: Tuple of instantaneous time derivatives:
+                - d_rotational_speed (float): Rotational speed rate of change (dN/dt) [%/s].
+                - d_compressor_pressure (float): Compressor pressure rate of change (dP/dt) [kPa/s].
+                - d_exhaust_gas_temperature (float): Exhaust gas temperature rate of change (dT/dt) [°C/s].
         """
         # Unpacks the parameters.
         current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature = current_values
@@ -251,31 +251,22 @@ class AircraftEngineSimulatorFloating:
             derivative_values: values_type
     ) -> values_type:
         """
-        Computes the future state values for the subsequent simulation step using Euler integration.
+        Computes future state values for the subsequent simulation step using forward Euler integration.
 
-        Mathematical Equations (Euler Integration):
-        1) Next Rotational Speed:
-           N[k+1] = N[k] + (dN/dt * delta_t)
-        2) Next Compressor Pressure:
-           P[k+1] = P[k] + (dP/dt * delta_t)
-        3) Next Exhaust Gas Temperature:
-           T[k+1] = T[k] + (dT/dt * delta_t)
+        Mathematical Formulations:
+        1. N[k+1] = N[k] + ((dN/dt)[k] * dt)
+        2. P[k+1] = P[k] + ((dP/dt)[k] * dt)
+        3. T[k+1] = T[k] + ((dT/dt)[k] * dt)
 
         Args:
-            current_values (values_type): A tuple containing:
-                - current_rotational_speed (float): Current state value N[k].
-                - current_compressor_pressure (float): Current state value P[k].
-                - current_exhaust_gas_temperature (float): Current state value T[k].
-            derivative_values (values_type): A tuple containing:
-                - d_rotational_speed (float): Time derivative dN/dt.
-                - d_compressor_pressure (float): Time derivative dP/dt.
-                - d_exhaust_gas_temperature (float): Time derivative dT/dt.
+            current_values (values_type): Tuple of states at step k (N[k], P[k], T[k]).
+            derivative_values (values_type): Tuple of rates of change ((dN/dt)[k], (dP/dt)[k], (dT/dt)[k]).
 
         Returns:
-            values_type: A tuple containing the integrated states for the next step:
-                - next_rotational_speed (float): Integrated rotational speed N[k+1].
-                - next_compressor_pressure (float): Integrated compressor pressure P[k+1].
-                - next_exhaust_gas_temperature (float): Integrated exhaust gas temperature T[k+1].
+            values_type: Tuple of integrated states for step k+1:
+                - next_rotational_speed (float): Integrated rotational speed (N[k+1]) [%].
+                - next_compressor_pressure (float): Integrated compressor pressure (P[k+1]) [kPa].
+                - next_exhaust_gas_temperature (float): Integrated exhaust gas temperature (T[k+1]) [°C].
         """
         # Unpacks the parameters.
         current_rotational_speed, current_compressor_pressure, current_exhaust_gas_temperature = current_values
@@ -295,40 +286,31 @@ class AircraftEngineSimulatorFloating:
             initial_conditions: tuple[float, float, float]
     ) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64]]:
         """
-        Executes the continuous physical simulation loop across the full time schedule.
+        Executes the continuous floating-point simulation across the full scheduled duration.
 
-        For each calculated simulation step, this method:
-        - Schedules the command fuel flow.
-        - Calculates targets and dynamics.
-        - Performs first-order Euler integration.
-        - Checks and applies minimum physical boundary safeguards.
-        - Monitors structural bounds; if maximum constraints are breached, structural
-          failure is flagged and gains are zeroed to represent an automatic emergency cut-off.
-
-        Mathematical Equations & Constraints:
-        1) Time Step Calculation:
-           k = i * delta_t
-        2) Minimum Bounds Enforcement (Clamping):
-           next_speed = max(0.0, next_speed)
-           next_pressure = max(P_amb, next_pressure)
-           next_temperature = max(T_amb, next_temperature)
-        3) Safety Monitoring:
-           Engine fails if (current_speed > max_rotational_speed) or (current_temperature > max_compressor_temperature)
+        At each discrete time step (dt):
+        1. Evaluates fuel flow schedule based on simulation time.
+        2. If structural trip occurs, zeroes fuel flow and disables system gains.
+        3. Computes steady-state target values.
+        4. Evaluates continuous time derivatives via physical time constants.
+        5. Advances states using first-order forward Euler integration.
+        6. Clamps states to physical baseline limits (N >= 0.0, P >= P_amb, T >= T_amb).
+        7. Evaluates structural boundaries (overspeed N > N_max, thermal meltdown T > T_max).
 
         Args:
-            initial_conditions (tuple[float, float, float]): Starting state vector:
-                - initial_speed (float): Initial rotational speed.
-                - initial_pressure (float): Initial compressor pressure.
-                - initial_temperature (float): Initial exhaust gas temperature.
+            initial_conditions (tuple[float, float, float]): Starting state vector at t = 0:
+                - initial_speed (float): Initial rotational speed (N[0]) [%].
+                - initial_pressure (float): Initial compressor pressure (P[0]) [kPa].
+                - initial_temperature (float): Initial exhaust gas temperature (T[0]) [°C].
 
         Returns:
-            tuple[NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64]]: 
-                A tuple of historical data arrays:
-                - fuel_flow_history (NDArray[float64]): Logged fuel flow rate over time.
-                - speed_history (NDArray[float64]): Logged rotational speed over time.
-                - pressure_history (NDArray[float64]): Logged compressor pressure over time.
-                - temperature_history (NDArray[float64]): Logged exhaust gas temperature over time.
-                - time_history (NDArray[float64]): Temporal sequence of step points in seconds.
+            tuple[NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64]]:
+                Tuple of 5 logged floating-point NumPy arrays:
+                - fuel_flow_history (NDArray[float64]): Commanded fuel flow over time [kg/h].
+                - speed_history (NDArray[float64]): Rotational speed history [%].
+                - pressure_history (NDArray[float64]): Compressor pressure history [kPa].
+                - temperature_history (NDArray[float64]): Exhaust gas temperature history [°C].
+                - time_history (NDArray[float64]): Simulation timestamps in seconds.
         """
         # Unpacks the initial conditions.
         initial_speed, initial_pressure, initial_temperature = initial_conditions
