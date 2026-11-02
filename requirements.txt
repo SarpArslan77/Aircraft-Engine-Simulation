@@ -4,4 +4,3 @@ cocotbext_axi==0.1.28
 matplotlib==3.11.2
 numpy==2.5.4
 pandas==3.1.0
-pypdf==6.21.4
