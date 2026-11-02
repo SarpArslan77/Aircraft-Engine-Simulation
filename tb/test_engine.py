@@ -628,6 +628,9 @@ class EngineTester:
             # Safety mechanism, stops the loop if it passes its maximum time threshold.
             if (thermal_threshold_cross_cycle >= max_thermal_threshold_cross_cycle) and not is_thermal_threshold_crossed:
                 raise TimeoutError(f"Timeout! Engine failed to trip within {max_thermal_threshold_cross_cycle} cycles.")
+
+        # Waits one tick for the FSM to latch the trip state.
+        await RisingEdge(dut.clk_en_1ms)
         
         # Reads the engine status.
         read_engine_status_value_bytes = await axil_master.read(
