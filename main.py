@@ -1,8 +1,8 @@
 
 #* main.py
 
-#TODO Add various command lines (e.g. todo.py).
 #TODO Add a pre-commit 'pipreqs' library to update the 'requirements.txt'.
+#TODO Control the synthesis reports for anomalies.
 
 #* ======= Libraries =======
 # ------- Natives. -------
@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Any
 
@@ -382,10 +383,10 @@ if __name__ == "__main__":
 
     #? .build(): Translates Python configuration into exact command-line
     #   arguments required by target compiler.
-    #   - sources: List of paths to the source files.
-    #   - hdl_toplevel: Name of the top-level module.
-    #   - parameters: Dictionary mapping hdl parameters.
-    #   - always: True: Forces a complete recompile every time.
+    #   -> sources: List of paths to the source files.
+    #   -> hdl_toplevel: Name of the top-level module.
+    #   -> parameters: Dictionary mapping hdl parameters.
+    #   -> always: True: Forces a complete recompile every time.
     #             False: Checks file timestamps and skips recompiling if source haven't changed.
     # Compiles the verilog files.
     runner.build(
@@ -423,63 +424,127 @@ if __name__ == "__main__":
         test_dir = TB_DIR_PATH
     )
 
-    # 'python main.py --synth'.
-    if ("--synth" in sys.argv):
-        # Sweeps for different frequencies until the maximum frequencies is reached.
-        if SHOULD_FIND_MAX_FREQ:
-            print()
-            print(f"Calculating the maximum frequency by trying ones between [{LOW_PERIOD_NS}, {HIGH_PERIOD_NS}]...")
-            
-            adjusted_high_period_ns: float = HIGH_PERIOD_NS
-            adjusted_low_period_ns: float = LOW_PERIOD_NS
+    # ------- Parsing. -------
+    # Creates top-level parser.
+    parser = ArgumentParser(description = "Aircraft Engine Simulation & Verification Pipeline.")
 
-            # Stores the lowest synthesizable period, defaults to the highest possible period.
-            best_synthesizable_period: float  = HIGH_PERIOD_NS
-            best_wns: float = -np.inf
+    # Mutually exclusive group: either a single synthesis run OR a frequency sweep, never both.
+    synthesizer_group = parser.add_mutually_exclusive_group()
 
-            while ((adjusted_high_period_ns - adjusted_low_period_ns) > 0.100):
-                # Calculates the test period.
-                test_period_ns: float = round(((adjusted_high_period_ns + adjusted_low_period_ns) / 2), 3)
-                
-                wns: float = synthesis_runner.run_synthesis(
-                    target_period_ns = test_period_ns,
-                    should_update_readme = False
-                )
+    #? nargs: Number of arguments:
+    #   -> '?': 0 or 1 value.
+    #   -> '*': 0 or more values.
+    #? default = None: The value assigned to 'args.<name>' when the user does
+    #       not type that flag at all in the terminal.
+    #? help: Human-readable explanation string displayed when 'python main.py --help' / 'python main.py -h'.
+    #? metavar: Meta-Variable, controls the visual placeholder name shown in the '--help' menu output.
+    # Synthesizes with a target period (default 'TARGET_PERIOD_NS': 3.250 ns).
+    # -> 'python main.py --synth': Uses 'TARGET_PERIOD_NS'.
+    # -> 'python main.py --synth 4.000': Uses 4.000 ns.
+    synthesizer_group.add_argument(
+        "--synth",
+        nargs = "?",
+        const = 3.250,
+        type = float,
+        default = None,
+        help = "Run single Out-of-Context synthesis. Optional target period in [ns] (default: 3.250)."
+    )
 
-                # Updates the period boundaries.
-                if (wns >= 0.000):
-                    adjusted_high_period_ns = test_period_ns
+    # Sweeps target periods in an interval to discover maximum frequency (F_max).
+    # -> 'python main.py --sweep': Uses [LOW_PERIOD_NS, HIGH_PERIOD_NS].
+    # -> 'python main.py --sweep 1.0 20.0': Uses [2.000, 10.000] ns.
+    synthesizer_group.add_argument(
+        "--sweep",
+        nargs = "*",
+        type = float,
+        default = None,
+        metavar = ("LOW", "HIGH"),
+        help = "Execute binary search frequency sweep." \
+            " Pass 0 arguments for defaults or 2 bounds:" \
+            " LOW HIGH in [ns] (e.g., --sweep 2.0 10.0)."
+    )
 
-                    # Updates the best period and wns.
-                    best_synthesizable_period = test_period_ns
-                    best_wns = wns
-                else:
-                    adjusted_low_period_ns = test_period_ns
+    # Runs code linters.
+    parser.add_argument(
+        "--lint",
+        action = "store_true",
+        help = "Run Ruff and Verible linting checks."
+    )
 
-                print(f"-> Period: {test_period_ns} & WNS: {wns}")
+    # Parses the command-line arguments.
+    args: Namespace = parser.parse_args() #TODO ATH
 
-            # Re-runs the synthesis with the highst frequency for updating the 'README' file.
-            _ = synthesis_runner.run_synthesis(
-                target_period_ns = best_synthesizable_period,
-                should_update_readme = True
-            )
-
-            print()
-            print(f" --> Best (Shortest) Period {best_synthesizable_period} | Best (Lowest) WNS: {best_wns}")
-
-        # Runs the synthesis with the specified target frequency.
+    # ------- Synthesis. -------
+    # -> 'python main.py --sweep'.
+    # -> 'python main.py --sweep 2.0 10.0'.
+    if args.sweep is not None:
+        # Validates argument count. Either 0 (default) or 2 (customs).
+        if len(args.sweep) == 2:
+            adjusted_low_period_ns: float = float(min(args.sweep))
+            adjusted_high_period_ns: float = float(max(args.sweep))
+        elif len(args.sweep) == 0:
+            adjusted_low_period_ns = LOW_PERIOD_NS
+            adjusted_high_period_ns = HIGH_PERIOD_NS
         else:
-            _ = synthesis_runner.run_synthesis(
-                target_period_ns = TARGET_PERIOD_NS,
-                should_update_readme = True
+            parser.error(
+                message = "--sweep accepts either 0 arguments (using defaults)" \
+                    " or exactly 2 bounds: LOW HIGH (e.g., --sweep 2.0 10.0)."
             )
 
+        print()
+        print(f"Calculating the maximum frequency by trying periods between [{adjusted_low_period_ns}, {adjusted_high_period_ns}] ns...")
+
+        best_synthesizable_period: float = adjusted_high_period_ns
+        best_wns: float = -np.inf
+
+        while ((adjusted_high_period_ns - adjusted_low_period_ns) > 0.100):
+            # Calculates the midpoint test period.
+            test_period_ns: float = round(((adjusted_high_period_ns + adjusted_low_period_ns) / 2), 3)
+
+            wns: float = synthesis_runner.run_synthesis(
+                target_period_ns = test_period_ns,
+                should_update_readme = False
+            )
+
+            # Updates the period boundaries.
+            if (wns >= 0.000):
+                adjusted_high_period_ns = test_period_ns
+                best_synthesizable_period = test_period_ns
+                best_wns = wns
+            else:
+                adjusted_low_period_ns = test_period_ns
+
+            print(f"-> Period: {test_period_ns} & WNS: {wns}")
+
+        # Re-runs synthesis with the highest frequency to update the README.
+        _ = synthesis_runner.run_synthesis(
+            target_period_ns = best_synthesizable_period,
+            should_update_readme = True
+        )
+
+        print()
+        print(f" --> Best (Shortest) Period: {best_synthesizable_period} ns | Best (Lowest) WNS: {best_wns} ns")
+
+    elif args.synth is not None:
+        target_period: float = args.synth
+        print()
+        print(f"Running single Out-of-Context synthesis at target period: {target_period} ns...")
+
+        _ = synthesis_runner.run_synthesis(
+            target_period_ns = target_period,
+            should_update_readme = True
+        )
+
+    # ------- Linting. -------
     # 'python main.py --lint'.
-    if ("--lint" in sys.argv):
+    if args.lint:
+        print()
+        print("Running linters (Ruff & Verible)...")
+
         # Runs Ruff.
         ruff_result: CompletedProcess = subprocess.run(
             ["ruff", "check", "."],
-            cwd = MAIN_DIR_PATH    
+            cwd = MAIN_DIR_PATH
         )
 
         # Runs Verible.
@@ -493,7 +558,6 @@ if __name__ == "__main__":
         # Checks for failures.
         if (ruff_result.returncode != 0) or (verible_result.returncode != 0):
             print("Linting failed!")
-            # Exits with an error code so Git knows it failed.
             sys.exit(1)
-        else: 
+        else:
             print("Linting passed!")
