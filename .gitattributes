@@ -1,0 +1,3 @@
+# Force GitHub Linguist to detect YAML and TOML as visible languages in stats
+*.yml linguist-detectable=true
+*.toml linguist-detectable=true
