@@ -56,8 +56,8 @@ The simulator exposes a standard 32-bit AXI4-Lite bus interface:
 | **Slice LUTs (Logic)** | 132 | 20,800 | 0.63 % |
 | **Slice Registers (Flip-Flops)** | 186 | 41,600 | 0.45 % |
 | **DSP48E1 Slices** | 0 | 90 | 0.00 % |
-| **Target Clock ($F_{\text{target}}$)** | 307.69 MHz (3.25 ns) | - | - |
-| **Achieved Clock ($F_{\text{max}}$)** | **309.89 MHz** | - | - |
+| **Target Clock ($F_{	ext{target}}$)** | 307.69 MHz (3.25 ns) | - | - |
+| **Achieved Clock ($F_{	ext{max}}$)** | **309.89 MHz** | - | - |
 | **Worst Negative Slack (WNS)** | **+0.023 ns** | - | **Timing Met** |
 
 *Raw Vivado implementation reports: [`build_synth/utilization.rpt`](build_synth/utilization.rpt) and [`build_synth/timing.rpt`](build_synth/timing.rpt).*
