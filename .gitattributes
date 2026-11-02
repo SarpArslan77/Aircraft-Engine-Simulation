@@ -2,5 +2,4 @@
 *.toml linguist-detectable=true
 
 # Un-vendor the .github folder and make YAML detectable
-.github/** linguist-vendored=false
-.github/**/*.yml linguist-detectable=true
+.github/workflows/*.yml linguist-detectable=true
