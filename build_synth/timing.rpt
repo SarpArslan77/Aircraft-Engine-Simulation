@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2025.2 (win64) Build 6299465 Fri Nov 14 19:35:11 GMT 2025
-| Date         : Mon Nov  2 12:57:10 2026
+| Date         : Tue Nov  3 18:32:02 2026
 | Host         : MaxVerstappen running 64-bit major release  (build 9200)
 | Command      : report_timing_summary -file {C:/Users/Besitzer/Desktop/Python/Aircraft Engine Simulation/build_synth/timing.rpt}
 | Design       : aircraft_engine_simulator_top
@@ -54,7 +54,7 @@ Table of Contents
 3. checking pulse_width_clock (0)
 4. checking unconstrained_internal_endpoints (0)
 5. checking no_input_delay (58)
-6. checking no_output_delay (73)
+6. checking no_output_delay (169)
 7. checking multiple_clock (0)
 8. checking generated_clocks (0)
 9. checking loops (0)
@@ -91,9 +91,9 @@ Table of Contents
  There are 0 input ports with no input delay but user has a false path constraint.
 
 
-6. checking no_output_delay (73)
---------------------------------
- There are 73 ports with no output delay specified. (HIGH)
+6. checking no_output_delay (169)
+---------------------------------
+ There are 169 ports with no output delay specified. (HIGH)
 
  There are 0 ports with no output delay but user has a false path constraint
 
@@ -138,7 +138,7 @@ Table of Contents
 
     WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
     -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-      0.023        0.000                      0                  267        0.144        0.000                      0                  267        1.125        0.000                       0                   186  
+      0.197        0.000                      0                 1556        0.132        0.000                      0                 1556        5.035        0.000                       0                   594  
 
 
 All user specified timing constraints are met.
@@ -149,9 +149,9 @@ All user specified timing constraints are met.
 | -------------
 ------------------------------------------------------------------------------------------------
 
-Clock    Waveform(ns)         Period(ns)      Frequency(MHz)
------    ------------         ----------      --------------
-sys_clk  {0.000 1.625}        3.250           307.692         
+Clock    Waveform(ns)       Period(ns)      Frequency(MHz)
+-----    ------------       ----------      --------------
+sys_clk  {0.000 5.535}      11.070          90.334          
 
 
 ------------------------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ sys_clk  {0.000 1.625}        3.250           307.692
 
 Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
 -----             -------      -------  ---------------------  -------------------      -------      -------  ---------------------  -------------------     --------     --------  ----------------------  --------------------  
-sys_clk             0.023        0.000                      0                  267        0.144        0.000                      0                  267        1.125        0.000                       0                   186  
+sys_clk             0.197        0.000                      0                 1556        0.132        0.000                      0                 1556        5.035        0.000                       0                   594  
 
 
 ------------------------------------------------------------------------------------------------
@@ -192,26 +192,26 @@ Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing 
 From Clock:  sys_clk
   To Clock:  sys_clk
 
-Setup :            0  Failing Endpoints,  Worst Slack        0.023ns,  Total Violation        0.000ns
-Hold  :            0  Failing Endpoints,  Worst Slack        0.144ns,  Total Violation        0.000ns
-PW    :            0  Failing Endpoints,  Worst Slack        1.125ns,  Total Violation        0.000ns
+Setup :            0  Failing Endpoints,  Worst Slack        0.197ns,  Total Violation        0.000ns
+Hold  :            0  Failing Endpoints,  Worst Slack        0.132ns,  Total Violation        0.000ns
+PW    :            0  Failing Endpoints,  Worst Slack        5.035ns,  Total Violation        0.000ns
 ---------------------------------------------------------------------------------------------------
 
 
 Max Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.023ns  (required time - arrival time)
-  Source:                 inst_clock_prescaler/counter_reg[16]/C
-                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@1.625ns period=3.250ns})
-  Destination:            inst_clock_prescaler/counter_reg[14]/R
-                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@1.625ns period=3.250ns})
+Slack (MET) :             0.197ns  (required time - arrival time)
+  Source:                 inst_calculate_target_values/pressure_mult_q0_carry_i_3_psdsp/C
+                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@5.535ns period=11.070ns})
+  Destination:            inst_calculate_derivatives/compressor_pressure_mult_q_reg[41]/D
+                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@5.535ns period=11.070ns})
   Path Group:             sys_clk
   Path Type:              Setup (Max at Slow Process Corner)
-  Requirement:            3.250ns  (sys_clk rise@3.250ns - sys_clk rise@0.000ns)
-  Data Path Delay:        2.619ns  (logic 0.840ns (32.079%)  route 1.779ns (67.921%))
-  Logic Levels:           2  (LUT4=1 LUT6=1)
+  Requirement:            11.070ns  (sys_clk rise@11.070ns - sys_clk rise@0.000ns)
+  Data Path Delay:        10.898ns  (logic 6.828ns (62.651%)  route 4.070ns (37.349%))
+  Logic Levels:           17  (CARRY4=15 LUT3=1 LUT4=1)
   Clock Path Skew:        -0.049ns (DCD - SCD + CPR)
-    Destination Clock Delay (DCD):    0.924ns = ( 4.174 - 3.250 ) 
+    Destination Clock Delay (DCD):    0.924ns = ( 11.994 - 11.070 ) 
     Source Clock Delay      (SCD):    0.973ns
     Clock Pessimism Removal (CPR):    0.000ns
   Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
@@ -224,30 +224,75 @@ Slack (MET) :             0.023ns  (required time - arrival time)
   -------------------------------------------------------------------    -------------------
                          (clock sys_clk rise edge)    0.000     0.000 r  
                                                       0.000     0.000 r  s_axi_aclk (IN)
-                         net (fo=185, unset)          0.973     0.973    inst_clock_prescaler/s_axi_aclk
-    SLICE_X5Y86          FDRE                                         r  inst_clock_prescaler/counter_reg[16]/C
+                         net (fo=605, unset)          0.973     0.973    inst_calculate_target_values/s_axi_aclk
+    SLICE_X58Y35         FDRE                                         r  inst_calculate_target_values/pressure_mult_q0_carry_i_3_psdsp/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X5Y86          FDRE (Prop_fdre_C_Q)         0.419     1.392 r  inst_clock_prescaler/counter_reg[16]/Q
-                         net (fo=2, routed)           0.605     1.997    inst_clock_prescaler/counter_reg[16]
-    SLICE_X6Y86          LUT6 (Prop_lut6_I4_O)        0.297     2.294 r  inst_clock_prescaler/clk_en_1ms_i_4/O
-                         net (fo=2, routed)           0.511     2.805    inst_clock_prescaler/clk_en_1ms_i_4_n_0
-    SLICE_X7Y86          LUT4 (Prop_lut4_I0_O)        0.124     2.929 r  inst_clock_prescaler/counter[0]_i_1/O
-                         net (fo=17, routed)          0.663     3.592    inst_clock_prescaler/counter[0]_i_1_n_0
-    SLICE_X6Y86          FDRE                                         r  inst_clock_prescaler/counter_reg[14]/R
+    SLICE_X58Y35         FDRE (Prop_fdre_C_Q)         0.456     1.429 r  inst_calculate_target_values/pressure_mult_q0_carry_i_3_psdsp/Q
+                         net (fo=2, routed)           0.628     2.057    inst_calculate_target_values/pressure_mult_q_reg__0_n_105
+    SLICE_X59Y35         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507     2.564 r  inst_calculate_target_values/pressure_mult_q0_carry/CO[3]
+                         net (fo=1, routed)           0.000     2.564    inst_calculate_target_values/pressure_mult_q0_carry_n_0
+    SLICE_X59Y36         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     2.678 r  inst_calculate_target_values/pressure_mult_q0_carry__0/CO[3]
+                         net (fo=1, routed)           0.000     2.678    inst_calculate_target_values/pressure_mult_q0_carry__0_n_0
+    SLICE_X59Y37         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114     2.792 r  inst_calculate_target_values/pressure_mult_q0_carry__1/CO[3]
+                         net (fo=1, routed)           0.000     2.792    inst_calculate_target_values/pressure_mult_q0_carry__1_n_0
+    SLICE_X59Y38         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.334     3.126 r  inst_calculate_target_values/pressure_mult_q0_carry__2/O[1]
+                         net (fo=1, routed)           0.717     3.843    inst_calculate_target_values/target_compressor_pressure0[13]
+    SLICE_X58Y38         CARRY4 (Prop_carry4_S[0]_CO[3])
+                                                      0.835     4.678 r  inst_calculate_target_values/target_compressor_pressure_carry__2/CO[3]
+                         net (fo=1, routed)           0.000     4.678    inst_calculate_target_values/target_compressor_pressure_carry__2_n_0
+    SLICE_X58Y39         CARRY4 (Prop_carry4_CI_O[3])
+                                                      0.313     4.991 r  inst_calculate_target_values/target_compressor_pressure_carry__3/O[3]
+                         net (fo=2, routed)           0.718     5.708    inst_calculate_derivatives/target_pressure[20]
+    SLICE_X57Y40         CARRY4 (Prop_carry4_DI[0]_CO[3])
+                                                      0.708     6.416 r  inst_calculate_derivatives/compressor_pressure_delta_carry__4/CO[3]
+                         net (fo=1, routed)           0.000     6.416    inst_calculate_derivatives/compressor_pressure_delta_carry__4_n_0
+    SLICE_X57Y41         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.334     6.750 r  inst_calculate_derivatives/compressor_pressure_delta_carry__5/O[1]
+                         net (fo=9, routed)           0.591     7.341    inst_calculate_derivatives/compressor_pressure_delta__93[25]
+    SLICE_X56Y42         CARRY4 (Prop_carry4_DI[0]_CO[3])
+                                                      0.729     8.070 r  inst_calculate_derivatives/compressor_pressure_mult_q0_carry__5/CO[3]
+                         net (fo=1, routed)           0.000     8.070    inst_calculate_derivatives/compressor_pressure_mult_q0_carry__5_n_0
+    SLICE_X56Y43         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.323     8.393 r  inst_calculate_derivatives/compressor_pressure_mult_q0_carry__6/O[1]
+                         net (fo=1, routed)           0.308     8.701    inst_calculate_derivatives/compressor_pressure_mult_q0_carry__6_n_6
+    SLICE_X55Y43         CARRY4 (Prop_carry4_S[0]_O[0])
+                                                      0.553     9.254 r  inst_calculate_derivatives/compressor_pressure_mult_q0__262_carry/O[0]
+                         net (fo=2, routed)           0.824    10.078    inst_calculate_derivatives/compressor_pressure_mult_q0__262_carry_n_7
+    SLICE_X54Y42         LUT3 (Prop_lut3_I1_O)        0.327    10.405 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5_i_2/O
+                         net (fo=2, routed)           0.286    10.690    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5_i_2_n_0
+    SLICE_X54Y42         LUT4 (Prop_lut4_I3_O)        0.348    11.038 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5_i_6/O
+                         net (fo=1, routed)           0.000    11.038    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5_i_6_n_0
+    SLICE_X54Y42         CARRY4 (Prop_carry4_S[2]_CO[3])
+                                                      0.380    11.418 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5/CO[3]
+                         net (fo=1, routed)           0.000    11.418    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__5_n_0
+    SLICE_X54Y43         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.117    11.535 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__6/CO[3]
+                         net (fo=1, routed)           0.000    11.535    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__6_n_0
+    SLICE_X54Y44         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.117    11.652 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__7/CO[3]
+                         net (fo=1, routed)           0.000    11.652    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__7_n_0
+    SLICE_X54Y45         CARRY4 (Prop_carry4_CI_O[0])
+                                                      0.219    11.871 r  inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__8/O[0]
+                         net (fo=1, routed)           0.000    11.871    inst_calculate_derivatives/compressor_pressure_mult_q0__272_carry__8_n_7
+    SLICE_X54Y45         FDRE                                         r  inst_calculate_derivatives/compressor_pressure_mult_q_reg[41]/D
   -------------------------------------------------------------------    -------------------
 
-                         (clock sys_clk rise edge)    3.250     3.250 r  
-                                                      0.000     3.250 r  s_axi_aclk (IN)
-                         net (fo=185, unset)          0.924     4.174    inst_clock_prescaler/s_axi_aclk
-    SLICE_X6Y86          FDRE                                         r  inst_clock_prescaler/counter_reg[14]/C
-                         clock pessimism              0.000     4.174    
-                         clock uncertainty           -0.035     4.139    
-    SLICE_X6Y86          FDRE (Setup_fdre_C_R)       -0.524     3.615    inst_clock_prescaler/counter_reg[14]
+                         (clock sys_clk rise edge)   11.070    11.070 r  
+                                                      0.000    11.070 r  s_axi_aclk (IN)
+                         net (fo=605, unset)          0.924    11.994    inst_calculate_derivatives/s_axi_aclk
+    SLICE_X54Y45         FDRE                                         r  inst_calculate_derivatives/compressor_pressure_mult_q_reg[41]/C
+                         clock pessimism              0.000    11.994    
+                         clock uncertainty           -0.035    11.959    
+    SLICE_X54Y45         FDRE (Setup_fdre_C_D)        0.109    12.068    inst_calculate_derivatives/compressor_pressure_mult_q_reg[41]
   -------------------------------------------------------------------
-                         required time                          3.615    
-                         arrival time                          -3.592    
+                         required time                         12.068    
+                         arrival time                         -11.871    
   -------------------------------------------------------------------
-                         slack                                  0.023    
+                         slack                                  0.197    
 
 
 
@@ -255,16 +300,16 @@ Slack (MET) :             0.023ns  (required time - arrival time)
 
 Min Delay Paths
 --------------------------------------------------------------------------------------
-Slack (MET) :             0.144ns  (arrival time - required time)
-  Source:                 inst_axi4_lite/fuel_flow_command_reg_reg[0]/C
-                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@1.625ns period=3.250ns})
-  Destination:            current_fuel_flow_r_reg[0]/D
-                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@1.625ns period=3.250ns})
+Slack (MET) :             0.132ns  (arrival time - required time)
+  Source:                 inst_axi4_lite/control_reg_reg[11]/C
+                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@5.535ns period=11.070ns})
+  Destination:            inst_axi4_lite/s_axi_rdata_reg[11]/D
+                            (rising edge-triggered cell FDRE clocked by sys_clk  {rise@0.000ns fall@5.535ns period=11.070ns})
   Path Group:             sys_clk
   Path Type:              Hold (Min at Fast Process Corner)
   Requirement:            0.000ns  (sys_clk rise@0.000ns - sys_clk rise@0.000ns)
-  Data Path Delay:        0.285ns  (logic 0.186ns (65.209%)  route 0.099ns (34.791%))
-  Logic Levels:           1  (LUT3=1)
+  Data Path Delay:        0.273ns  (logic 0.186ns (68.106%)  route 0.087ns (31.894%))
+  Logic Levels:           1  (LUT6=1)
   Clock Path Skew:        0.022ns (DCD - SCD - CPR)
     Destination Clock Delay (DCD):    0.432ns
     Source Clock Delay      (SCD):    0.410ns
@@ -274,27 +319,27 @@ Slack (MET) :             0.144ns  (arrival time - required time)
   -------------------------------------------------------------------    -------------------
                          (clock sys_clk rise edge)    0.000     0.000 r  
                                                       0.000     0.000 r  s_axi_aclk (IN)
-                         net (fo=185, unset)          0.410     0.410    inst_axi4_lite/s_axi_aclk
-    SLICE_X3Y90          FDRE                                         r  inst_axi4_lite/fuel_flow_command_reg_reg[0]/C
+                         net (fo=605, unset)          0.410     0.410    inst_axi4_lite/s_axi_aclk
+    SLICE_X3Y40          FDRE                                         r  inst_axi4_lite/control_reg_reg[11]/C
   -------------------------------------------------------------------    -------------------
-    SLICE_X3Y90          FDRE (Prop_fdre_C_Q)         0.141     0.551 r  inst_axi4_lite/fuel_flow_command_reg_reg[0]/Q
-                         net (fo=2, routed)           0.099     0.650    inst_axi4_lite/fuel_flow_command[0]
-    SLICE_X2Y90          LUT3 (Prop_lut3_I2_O)        0.045     0.695 r  inst_axi4_lite/current_fuel_flow_r[0]_i_1/O
-                         net (fo=1, routed)           0.000     0.695    current_fuel_flow_r[0]
-    SLICE_X2Y90          FDRE                                         r  current_fuel_flow_r_reg[0]/D
+    SLICE_X3Y40          FDRE (Prop_fdre_C_Q)         0.141     0.551 r  inst_axi4_lite/control_reg_reg[11]/Q
+                         net (fo=1, routed)           0.087     0.638    inst_axi4_lite/control_reg[11]
+    SLICE_X2Y40          LUT6 (Prop_lut6_I1_O)        0.045     0.683 r  inst_axi4_lite/s_axi_rdata[11]_i_1/O
+                         net (fo=1, routed)           0.000     0.683    inst_axi4_lite/s_axi_rdata[11]_i_1_n_0
+    SLICE_X2Y40          FDRE                                         r  inst_axi4_lite/s_axi_rdata_reg[11]/D
   -------------------------------------------------------------------    -------------------
 
                          (clock sys_clk rise edge)    0.000     0.000 r  
                                                       0.000     0.000 r  s_axi_aclk (IN)
-                         net (fo=185, unset)          0.432     0.432    s_axi_aclk
-    SLICE_X2Y90          FDRE                                         r  current_fuel_flow_r_reg[0]/C
+                         net (fo=605, unset)          0.432     0.432    inst_axi4_lite/s_axi_aclk
+    SLICE_X2Y40          FDRE                                         r  inst_axi4_lite/s_axi_rdata_reg[11]/C
                          clock pessimism              0.000     0.432    
-    SLICE_X2Y90          FDRE (Hold_fdre_C_D)         0.120     0.552    current_fuel_flow_r_reg[0]
+    SLICE_X2Y40          FDRE (Hold_fdre_C_D)         0.120     0.552    inst_axi4_lite/s_axi_rdata_reg[11]
   -------------------------------------------------------------------
                          required time                         -0.552    
-                         arrival time                           0.695    
+                         arrival time                           0.683    
   -------------------------------------------------------------------
-                         slack                                  0.144    
+                         slack                                  0.132    
 
 
 
@@ -303,14 +348,14 @@ Slack (MET) :             0.144ns  (arrival time - required time)
 Pulse Width Checks
 --------------------------------------------------------------------------------------
 Clock Name:         sys_clk
-Waveform(ns):       { 0.000 1.625 }
-Period(ns):         3.250
+Waveform(ns):       { 0.000 5.535 }
+Period(ns):         11.070
 Sources:            { s_axi_aclk }
 
-Check Type        Corner  Lib Pin  Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location     Pin
-Min Period        n/a     FDRE/C   n/a            1.000         3.250       2.250      SLICE_X2Y89  FSM_sequential_current_state_reg[0]/C
-Low Pulse Width   Slow    FDRE/C   n/a            0.500         1.625       1.125      SLICE_X2Y89  FSM_sequential_current_state_reg[0]/C
-High Pulse Width  Slow    FDRE/C   n/a            0.500         1.625       1.125      SLICE_X2Y89  FSM_sequential_current_state_reg[0]/C
+Check Type        Corner  Lib Pin      Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location     Pin
+Min Period        n/a     DSP48E1/CLK  n/a            3.884         11.070      7.186      DSP48_X0Y21  inst_calculate_target_values/cooling_mult_q1_reg/CLK
+Low Pulse Width   Slow    FDRE/C       n/a            0.500         5.535       5.035      SLICE_X5Y40  FSM_sequential_current_state_reg[0]/C
+High Pulse Width  Slow    FDRE/C       n/a            0.500         5.535       5.035      SLICE_X5Y40  FSM_sequential_current_state_reg[0]/C
 
 
 

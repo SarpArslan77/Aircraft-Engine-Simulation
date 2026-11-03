@@ -53,12 +53,12 @@ The simulator exposes a standard 32-bit AXI4-Lite bus interface:
 <!-- SYNTH_TABLE_START -->
 | Metric / Hardware Resource | Used | Available (xc7a35tcpg236-1) | Utilization [%] |
 | :--- | :--- | :--- | :--- |
-| **Slice LUTs (Logic)** | 132 | 20,800 | 0.63 % |
-| **Slice Registers (Flip-Flops)** | 186 | 41,600 | 0.45 % |
-| **DSP48E1 Slices** | 0 | 90 | 0.00 % |
-| **Target Clock ($F_{	ext{target}}$)** | 307.69 MHz (3.25 ns) | - | - |
-| **Achieved Clock ($F_{	ext{max}}$)** | **309.89 MHz** | - | - |
-| **Worst Negative Slack (WNS)** | **+0.023 ns** | - | **Timing Met** |
+| **Slice LUTs (Logic)** | 933 | 20,800 | 4.49 % |
+| **Slice Registers (Flip-Flops)** | 586 | 41,600 | 1.41 % |
+| **DSP48E1 Slices** | 20 | 90 | 22.22 % |
+| **Target Clock ($F_{	ext{target}}$)** | 90.33 MHz (11.07 ns) | - | - |
+| **Achieved Clock ($F_{	ext{max}}$)** | **91.97 MHz** | - | - |
+| **Worst Negative Slack (WNS)** | **+0.197 ns** | - | **Timing Met** |
 
 *Raw Vivado implementation reports: [`build_synth/utilization.rpt`](build_synth/utilization.rpt) and [`build_synth/timing.rpt`](build_synth/timing.rpt).*
 <!-- SYNTH_TABLE_END -->
