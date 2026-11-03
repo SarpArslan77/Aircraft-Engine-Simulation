@@ -1,6 +1,10 @@
 
 #* main.py
 
+#TODO Add a better readme md:
+#   - show all the terminal commands possible
+#TODO Control the synthesis reports and check for anomalies.
+
 #* ======= Libraries =======
 # ------- Natives. -------
 import json
@@ -20,6 +24,7 @@ from numpy import float64
 from numpy.typing import NDArray
 
 # ------- Customs. -------
+from scripts.generate_verilog_header_file import generate_verilog_header_file
 from scripts.locate_iverilog_executable import locate_iverilog_executable
 from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
 from sim_model.aircraft_engine_simulator_fixed_point import (
@@ -121,7 +126,7 @@ if __name__ == "__main__":
 
     TARGET_PERIOD_NS: float = 3.250
     LOW_PERIOD_NS: float = 2.000
-    HIGH_PERIOD_NS: float = 10.000
+    HIGH_PERIOD_NS: float = 20.000
 
     # Exports a JSON File, which containts parameters for other files.
     config: dict[str, dict[str, Any]] = {
@@ -160,8 +165,122 @@ if __name__ == "__main__":
             indent = 4
         )
 
-    # ------- User-Specifiec Inputs. -------
-    SHOULD_FIND_MAX_FREQ: bool = False
+    # Defines the parameters.
+    ENGINE_MATH_PARAMETERS = {
+        "INTEGER_BIT_WIDTH": INT_BIT_WIDTH,
+        "FRACTIONAL_BIT_WIDTH": FRACTIONAL_BIT_WIDTH,
+
+        "AMBIENT_PRESSURE": AMBIENT_PRESSURE_QUANTIZED,
+        "AMBIENT_TEMPERATURE": AMBIENT_TEMPERATURE_QUANTIZED,
+
+        "SPEED_GAIN_COEFF": SPEED_GAIN_COEFF_QUANTIZED,
+        "COMPRESSOR_PRESSURE_GAIN": COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
+        "COMBUSTION_HEAT_GAIN": COMBUSTION_HEAT_GAIN_QUANTIZED,
+        "MASS_OVERFLOW_COOLING_GAIN": MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
+
+        "PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
+        "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
+        "PRE_CALCULATED_THERMAL_TIME_CONST": PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
+
+        "MAX_ROTATIONAL_SPEED": MAX_ROTATIONAL_SPEED_QUANTIZED,
+        "MAX_COMPRESSOR_TEMPERATURE": MAX_COMPRESSOR_TEMPERATURE_QUANTIZED,
+    }
+
+    COCOTB_PARAMETERS = {
+        **ENGINE_MATH_PARAMETERS,
+        "SYSTEM_CLK_FREQ": 25,
+        "TARGET_CLK_FREQ": 1,
+    }
+
+    TOP_MODULE_PARAMETERS = {
+        **ENGINE_MATH_PARAMETERS,
+        "SYSTEM_CLK_FREQ": 100_000_000,
+        "TARGET_CLK_FREQ": 1_000,
+    }
+
+    # Saves the hardware parameters as verilog header file, so it can be imported in top module.
+    generate_verilog_header_file(
+        file_name = "top_module_params.vh",
+        parameters = TOP_MODULE_PARAMETERS,
+        verilog_header_file_dir_path = RTL_DIR_PATH
+    )
+
+    # ------- Parsing. -------
+    # Creates top-level parser.
+    parser = ArgumentParser(description = "Aircraft Engine Simulation & Verification Pipeline.")
+    
+    # Mutually exclusive group: either a single synthesis run OR a frequency sweep, never both.
+    synthesizer_group = parser.add_mutually_exclusive_group()
+    
+    #? nargs: Number of arguments:
+    #   -> '?': 0 or 1 value.
+    #   -> '*': 0 or more values.
+    #? default = None: The value assigned to 'args.<name>' when the user does
+    #       not type that flag at all in the terminal.
+    #? help: Human-readable explanation string displayed when 'python main.py --help' / 'python main.py -h'.
+    #? metavar: Meta-Variable, controls the visual placeholder name shown in the '--help' menu output.
+    # Synthesizes with a target period (default 'TARGET_PERIOD_NS': 3.250 ns).
+    # -> 'python main.py --synth': Uses 'TARGET_PERIOD_NS'.
+    # -> 'python main.py --synth 4.000': Uses 4.000 ns.
+    synthesizer_group.add_argument(
+        "--synth",
+        nargs = "?",
+        const = TARGET_PERIOD_NS,
+        type = float,
+        default = None,
+        help = "Run single Out-of-Context synthesis. Optional target period in [ns] (default: 3.250)."
+    )
+    
+    # Sweeps target periods in an interval to discover maximum frequency (F_max).
+    # -> 'python main.py --sweep': Uses [LOW_PERIOD_NS, HIGH_PERIOD_NS].
+    # -> 'python main.py --sweep 1.0 20.0': Uses [1.000, 20.000] ns.
+    synthesizer_group.add_argument(
+        "--sweep",
+        nargs = "*",
+        type = float,
+        default = None,
+        metavar = ("LOW", "HIGH"),
+        help = "Execute binary search frequency sweep." \
+            " Pass 0 arguments for defaults or 2 bounds:" \
+            " LOW HIGH in [ns] (e.g., --sweep 2.0 10.0)."
+    )
+    
+    # Runs code linters.
+    parser.add_argument(
+        "--lint",
+        action = "store_true",
+        help = "Run Ruff and Verible linting checks."
+    )
+    
+    # Parses the command-line arguments.
+    args: Namespace = parser.parse_args() #TODO ATH
+
+    # ------- Linting. -------
+    # 'python main.py --lint'.
+    if args.lint:
+        print()
+        print("Running linters (Ruff & Verible)...")
+
+        # Runs Ruff.
+        ruff_result: CompletedProcess = subprocess.run(
+            ["ruff", "check", "."],
+            cwd = MAIN_DIR_PATH
+        )
+
+        # Runs Verible.
+        verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
+
+        verible_result: CompletedProcess = subprocess.run(
+            ["verible-verilog-lint", "--rules_config", ".rules.verible_lint"] + verilog_file_paths,
+            cwd = MAIN_DIR_PATH
+        )
+
+        # Checks for failures.
+        if (ruff_result.returncode != 0) or (verible_result.returncode != 0):
+            print("Linting failed!")
+            sys.exit(1)
+        else:
+            print("Linting passed!")
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
@@ -382,6 +501,7 @@ if __name__ == "__main__":
     #   arguments required by target compiler.
     #   -> sources: List of paths to the source files.
     #   -> hdl_toplevel: Name of the top-level module.
+    #   -> includes: Passes additional search directories.
     #   -> parameters: Dictionary mapping hdl parameters.
     #   -> always: True: Forces a complete recompile every time.
     #             False: Checks file timestamps and skips recompiling if source haven't changed.
@@ -389,28 +509,8 @@ if __name__ == "__main__":
     runner.build(
         sources = VERILOG_SRC_FILE_PATHS,
         hdl_toplevel = TOP_MODULE,
-        parameters = {
-            "SYSTEM_CLK_FREQ": 25,
-            "TARGET_CLK_FREQ": 1,
-
-            "INTEGER_BIT_WIDTH": INT_BIT_WIDTH,
-            "FRACTIONAL_BIT_WIDTH": FRACTIONAL_BIT_WIDTH,
-
-            "AMBIENT_PRESSURE": AMBIENT_PRESSURE_QUANTIZED,
-            "AMBIENT_TEMPERATURE": AMBIENT_TEMPERATURE_QUANTIZED,
-
-            "SPEED_GAIN_COEFF": SPEED_GAIN_COEFF_QUANTIZED,
-            "COMPRESSOR_PRESSURE_GAIN": COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
-            "COMBUSTION_HEAT_GAIN": COMBUSTION_HEAT_GAIN_QUANTIZED,
-            "MASS_OVERFLOW_COOLING_GAIN": MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
-
-            "PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
-            "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
-            "PRE_CALCULATED_THERMAL_TIME_CONST": PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
-
-            "MAX_ROTATIONAL_SPEED": MAX_ROTATIONAL_SPEED_QUANTIZED,
-            "MAX_COMPRESSOR_TEMPERATURE": MAX_COMPRESSOR_TEMPERATURE_QUANTIZED
-        },
+        includes = [RTL_DIR_PATH],
+        parameters = COCOTB_PARAMETERS,
         always = True
     )
 
@@ -420,56 +520,6 @@ if __name__ == "__main__":
         test_module = "test_engine",
         test_dir = TB_DIR_PATH
     )
-
-    # ------- Parsing. -------
-    # Creates top-level parser.
-    parser = ArgumentParser(description = "Aircraft Engine Simulation & Verification Pipeline.")
-
-    # Mutually exclusive group: either a single synthesis run OR a frequency sweep, never both.
-    synthesizer_group = parser.add_mutually_exclusive_group()
-
-    #? nargs: Number of arguments:
-    #   -> '?': 0 or 1 value.
-    #   -> '*': 0 or more values.
-    #? default = None: The value assigned to 'args.<name>' when the user does
-    #       not type that flag at all in the terminal.
-    #? help: Human-readable explanation string displayed when 'python main.py --help' / 'python main.py -h'.
-    #? metavar: Meta-Variable, controls the visual placeholder name shown in the '--help' menu output.
-    # Synthesizes with a target period (default 'TARGET_PERIOD_NS': 3.250 ns).
-    # -> 'python main.py --synth': Uses 'TARGET_PERIOD_NS'.
-    # -> 'python main.py --synth 4.000': Uses 4.000 ns.
-    synthesizer_group.add_argument(
-        "--synth",
-        nargs = "?",
-        const = 3.250,
-        type = float,
-        default = None,
-        help = "Run single Out-of-Context synthesis. Optional target period in [ns] (default: 3.250)."
-    )
-
-    # Sweeps target periods in an interval to discover maximum frequency (F_max).
-    # -> 'python main.py --sweep': Uses [LOW_PERIOD_NS, HIGH_PERIOD_NS].
-    # -> 'python main.py --sweep 1.0 20.0': Uses [2.000, 10.000] ns.
-    synthesizer_group.add_argument(
-        "--sweep",
-        nargs = "*",
-        type = float,
-        default = None,
-        metavar = ("LOW", "HIGH"),
-        help = "Execute binary search frequency sweep." \
-            " Pass 0 arguments for defaults or 2 bounds:" \
-            " LOW HIGH in [ns] (e.g., --sweep 2.0 10.0)."
-    )
-
-    # Runs code linters.
-    parser.add_argument(
-        "--lint",
-        action = "store_true",
-        help = "Run Ruff and Verible linting checks."
-    )
-
-    # Parses the command-line arguments.
-    args: Namespace = parser.parse_args() #TODO ATH
 
     # ------- Synthesis. -------
     # -> 'python main.py --sweep'.
@@ -531,30 +581,3 @@ if __name__ == "__main__":
             target_period_ns = target_period,
             should_update_readme = True
         )
-
-    # ------- Linting. -------
-    # 'python main.py --lint'.
-    if args.lint:
-        print()
-        print("Running linters (Ruff & Verible)...")
-
-        # Runs Ruff.
-        ruff_result: CompletedProcess = subprocess.run(
-            ["ruff", "check", "."],
-            cwd = MAIN_DIR_PATH
-        )
-
-        # Runs Verible.
-        verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
-
-        verible_result: CompletedProcess = subprocess.run(
-            ["verible-verilog-lint", "--rules_config", ".rules.verible_lint"] + verilog_file_paths,
-            cwd = MAIN_DIR_PATH
-        )
-
-        # Checks for failures.
-        if (ruff_result.returncode != 0) or (verible_result.returncode != 0):
-            print("Linting failed!")
-            sys.exit(1)
-        else:
-            print("Linting passed!")

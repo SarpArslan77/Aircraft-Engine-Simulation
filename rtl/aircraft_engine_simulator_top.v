@@ -1,37 +1,40 @@
 
 //* rtl/aircraft_engine_simulator_top.v
 
+//* ======= Included Scripts =======
+`include "top_module_params.vh"
+
 `timescale 1ns / 1ps
 
 //* ======= Aircraft Engine Simulator Top Module =======
 module aircraft_engine_simulator_top #(
     // ------- Parameters. -------
     // -> Frequencies.
-    parameter SYSTEM_CLK_FREQ = 100_000_000, // [Hz].
-    parameter TARGET_CLK_FREQ = 1_000,
+    parameter SYSTEM_CLK_FREQ = `SYSTEM_CLK_FREQ, // [Hz].
+    parameter TARGET_CLK_FREQ = `TARGET_CLK_FREQ,
 
     // -> Data Representation.
-    parameter INTEGER_BIT_WIDTH = 16,
-    parameter FRACTIONAL_BIT_WIDTH = 16,
+    parameter INTEGER_BIT_WIDTH = `INTEGER_BIT_WIDTH,
+    parameter FRACTIONAL_BIT_WIDTH = `FRACTIONAL_BIT_WIDTH,
 
     // -> Ambient Conditions.
-    parameter signed [31:0] AMBIENT_PRESSURE = 0,
-    parameter signed [31:0] AMBIENT_TEMPERATURE = 0,
+    parameter signed [31:0] AMBIENT_PRESSURE = `AMBIENT_PRESSURE, // 101.3 kPa.
+    parameter signed [31:0] AMBIENT_TEMPERATURE = `AMBIENT_TEMPERATURE, // 15.0 *C.
 
     // -> Gains.
-    parameter signed [31:0] SPEED_GAIN_COEFF = 0,
-    parameter signed [31:0] COMPRESSOR_PRESSURE_GAIN = 0,
-    parameter signed [31:0] COMBUSTION_HEAT_GAIN = 0,
-    parameter signed [31:0] MASS_OVERFLOW_COOLING_GAIN = 0,
+    parameter signed [31:0] SPEED_GAIN_COEFF = `SPEED_GAIN_COEFF, // 1.0.
+    parameter signed [31:0] COMPRESSOR_PRESSURE_GAIN = `COMPRESSOR_PRESSURE_GAIN, // 0.015.
+    parameter signed [31:0] COMBUSTION_HEAT_GAIN = `COMBUSTION_HEAT_GAIN, // 15.0.
+    parameter signed [31:0] MASS_OVERFLOW_COOLING_GAIN = `MASS_OVERFLOW_COOLING_GAIN, // 6.0.
 
     // -> Time Constants (Inertia).
-    parameter signed [31:0] PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST = 0,
-    parameter signed [31:0] PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST = 0,
-    parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = 0,
+    parameter signed [31:0] PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST = `PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST, // 1.5s.
+    parameter signed [31:0] PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST = `PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST, // 0.15s.
+    parameter signed [31:0] PRE_CALCULATED_THERMAL_TIME_CONST = `PRE_CALCULATED_THERMAL_TIME_CONST, // 0.8s.
 
     // -> Engine Limits.
-    parameter signed [31:0] MAX_ROTATIONAL_SPEED = 0,
-    parameter signed [31:0] MAX_COMPRESSOR_TEMPERATURE = 0
+    parameter signed [31:0] MAX_ROTATIONAL_SPEED = `MAX_ROTATIONAL_SPEED, // 110.0%.
+    parameter signed [31:0] MAX_COMPRESSOR_TEMPERATURE = `MAX_COMPRESSOR_TEMPERATURE // 1100.0 *C.
 )(
     // ------- Inputs. -------
     // -> System Signals.

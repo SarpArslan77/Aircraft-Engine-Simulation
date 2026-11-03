@@ -52,11 +52,11 @@ module calculate_derivatives #(
     assign d_exhaust_gas_temperature = (exhaust_gas_temperature_mult_q >>> FRACTIONAL_BIT_WIDTH);
 
     // ------- Registers. -------
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_q;
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_q;
 
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] compressor_pressure_mult_q;
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] compressor_pressure_mult_q;
 
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] exhaust_gas_temperature_mult_q;
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] exhaust_gas_temperature_mult_q;
 
     // ------- Sequential Logic. -------
     always @(posedge clk) begin

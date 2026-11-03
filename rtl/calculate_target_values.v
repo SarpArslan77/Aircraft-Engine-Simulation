@@ -51,17 +51,17 @@ module calculate_target_values #(
 
     // ------- Registers. -------
     // RS.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q1;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q1;
     reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q2;
 
     // CP.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_q;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_q;
+    (* use_dsp = "yes" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_q;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_q;
 
     // EGT.
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q1;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q1;
     reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q2;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q1;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q1;
     reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q2;
 
     // ------- Sequential Logic. -------
