@@ -1,9 +1,6 @@
 
 #* main.py
 
-#TODO Add a pre-commit 'pipreqs' library to update the 'requirements.txt'.
-#TODO Control the synthesis reports for anomalies.
-
 #* ======= Libraries =======
 # ------- Natives. -------
 import json
