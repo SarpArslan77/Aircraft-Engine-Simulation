@@ -35,8 +35,9 @@ read_verilog [glob "$MAIN_DIR/rtl/*.v"]
 #? -top: Tells Vivado which module is the master root.
 #? -part: Tells Vivado which specific FPGA silicon to map the gates onto.
 #? -mode out_of_context: Tells Vivado: "Do not attach physical package pins".
+#? -include_dirs: Passes additional search directories.
 # Synthesizes in Out-of-Context mode.
-synth_design -top $TOP_MODULE -part $PART -mode out_of_context
+synth_design -top $TOP_MODULE -part $PART -mode out_of_context -include_dirs "$MAIN_DIR/rtl"
 
 # Reads the target period from command-line arguments (defaults to 10.0).
 if { $argc > 0 } {
