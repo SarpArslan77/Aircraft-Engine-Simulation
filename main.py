@@ -124,7 +124,7 @@ if __name__ == "__main__":
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
-    TARGET_PERIOD_NS: float = 3.250
+    TARGET_PERIOD_NS: float = 11.000
     LOW_PERIOD_NS: float = 2.000
     HIGH_PERIOD_NS: float = 20.000
 

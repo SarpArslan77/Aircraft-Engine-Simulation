@@ -64,8 +64,8 @@ route_design
 #       calculates the Worst Negative Slack (WNS).
 #? -file: Saves the files to specified path.
 # Exports reports.
-report_utilization -file "$OUTPUT_DIR/utilization.rpt"
-report_timing_summary -file "$OUTPUT_DIR/timing.rpt"
+report_utilization -file "utilization.rpt"
+report_timing_summary -file "timing.rpt"
 
 #? puts: Prints.
 #? exit: Closes Vivado.

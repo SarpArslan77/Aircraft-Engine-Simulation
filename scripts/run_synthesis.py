@@ -112,6 +112,52 @@ class SynthesisRunner:
         # Falls back to the configured path.
         return self._cfg.hardcoded_vivado_path
 
+    def _clean_reports(
+        self,
+        report_file_name: str
+    ) -> None:
+        """
+        Sanitizes sensitive local machine metadata and absolute paths from Vivado reports.
+
+        Inspects generated Static Timing Analysis ('timing.rpt') and resource utilization
+        ('utilization.rpt') files in-place. Replaces local computer network hostnames,
+        operating system build numbers, and user-specific filesystem directory paths with
+        generic, anonymized placeholders to prevent information disclosure in public repositories.
+
+        Args:
+            report_file_name (str): Target report's file name ('utilization.rpt' or 'timing.rpt').
+
+        Returns:
+            None
+        """
+        report_file_path: Path = self._cfg.build_synth_dir_path / report_file_name
+
+        if report_file_path.is_file():
+            report: str = report_file_path.read_text(
+                encoding = "utf-8",
+                errors = "replace"
+            )
+
+            # Cleans specific patterns in the reports.
+            hostname_pattern: str = r"\|\s*Host\s*:.*"
+            hostname_cleaned_report: str = re.sub(
+                pattern = hostname_pattern,
+                repl = r"| Host         : [ANONYMIZED_BUILD_HOST]",
+                string = report
+            )
+
+            local_path_pattern: str = r"\{?[a-zA-Z]:[/\\].*?[/\\]([^}\s\r\n]+\.rpt)\}?"
+            local_path_cleaned_report: str = re.sub(
+                pattern = local_path_pattern,
+                repl = r"[PROJECT_ROOT]/build_synth/\1",
+                string = hostname_cleaned_report
+            )
+
+            report_file_path.write_text(
+                data = local_path_cleaned_report,
+                encoding = "utf-8"
+            )
+
     def _parse_reports(
             self,
             target_period_ns: float
@@ -437,6 +483,10 @@ class SynthesisRunner:
 
         if not should_update_readme:
             print("Vivado process finished successfully.")
+
+        # Clears any local computer hostname and absolute paths from generated reports.
+        self._clean_reports(report_file_name = "utilization.rpt")
+        self._clean_reports(report_file_name = "timing.rpt")
 
         # Moves any stray scratch files dumped by Vivado into 'build_synth'.
         stray_files: list[str] = [
