@@ -1,8 +1,7 @@
 
 #* main.py
 
-#TODO Add a better readme md:
-#   - show all the terminal commands possible
+#TODO Add central configuration files to root directory, which has all data for different file types.
 #TODO Control the synthesis reports and check for anomalies.
 
 #* ======= Libraries =======
@@ -124,9 +123,9 @@ if __name__ == "__main__":
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
-    TARGET_PERIOD_NS: float = 11.000
-    LOW_PERIOD_NS: float = 2.000
-    HIGH_PERIOD_NS: float = 20.000
+    SYNTH_TARGET_PERIOD: float = 11.000 # [ns].
+    SWEEP_LOW_PERIOD: float = 2.000 # [ns].
+    SWEEP_HIGH_PERIOD: float = 20.000 # [ns].
 
     # Exports a JSON File, which containts parameters for other files.
     config: dict[str, dict[str, Any]] = {
@@ -219,20 +218,20 @@ if __name__ == "__main__":
     #       not type that flag at all in the terminal.
     #? help: Human-readable explanation string displayed when 'python main.py --help' / 'python main.py -h'.
     #? metavar: Meta-Variable, controls the visual placeholder name shown in the '--help' menu output.
-    # Synthesizes with a target period (default 'TARGET_PERIOD_NS': 3.250 ns).
-    # -> 'python main.py --synth': Uses 'TARGET_PERIOD_NS'.
+    # Synthesizes with a target period (default 'TARGET_PERIOD': 3.250 ns).
+    # -> 'python main.py --synth': Uses 'TARGET_PERIOD'.
     # -> 'python main.py --synth 4.000': Uses 4.000 ns.
     synthesizer_group.add_argument(
         "--synth",
         nargs = "?",
-        const = TARGET_PERIOD_NS,
+        const = SYNTH_TARGET_PERIOD,
         type = float,
         default = None,
         help = "Run single Out-of-Context synthesis. Optional target period in [ns] (default: 3.250)."
     )
     
     # Sweeps target periods in an interval to discover maximum frequency (F_max).
-    # -> 'python main.py --sweep': Uses [LOW_PERIOD_NS, HIGH_PERIOD_NS].
+    # -> 'python main.py --sweep': Uses [LOW_PERIOD, HIGH_PERIOD].
     # -> 'python main.py --sweep 1.0 20.0': Uses [1.000, 20.000] ns.
     synthesizer_group.add_argument(
         "--sweep",
@@ -530,8 +529,8 @@ if __name__ == "__main__":
             adjusted_low_period_ns: float = float(min(args.sweep))
             adjusted_high_period_ns: float = float(max(args.sweep))
         elif len(args.sweep) == 0:
-            adjusted_low_period_ns = LOW_PERIOD_NS
-            adjusted_high_period_ns = HIGH_PERIOD_NS
+            adjusted_low_period_ns = SWEEP_LOW_PERIOD
+            adjusted_high_period_ns = SWEEP_HIGH_PERIOD
         else:
             parser.error(
                 message = "--sweep accepts either 0 arguments (using defaults)" \
