@@ -349,7 +349,7 @@ class SynthesisRunner:
 | **Slice LUTs (Logic)** | {metrics.get('lut_used', 0):,} | {metrics.get('lut_avail', 0):,} | {metrics.get('lut_util', 0.0):.2f} % |
 | **Slice Registers (Flip-Flops)** | {metrics.get('ff_used', 0):,} | {metrics.get('ff_avail', 0):,} | {metrics.get('ff_util', 0.0):.2f} % |
 | **DSP48E1 Slices** | {metrics.get('dsp_used', 0):,} | {metrics.get('dsp_avail', 0):,} | {metrics.get('dsp_util', 0.0):.2f} % |
-| **Target Clock ($F_{{\\text{{target}}}}$)** | {metrics.get('target_freq_mhz', 100.0):.2f} MHz ({metrics.get('target_period_ns', 10.0):.2f} ns) | - | - |
+| **Target Clock ($F_{{\\text{{target}}}}$)** | {metrics.get('target_freq_mhz', 100.0):.2f} MHz<br>({metrics.get('target_period_ns', 10.0):.2f}&nbsp;ns) | - | - |
 | **Achieved Clock ($F_{{\\text{{max}}}}$)** | **{metrics.get('f_max_mhz', 0.0):.2f} MHz** | - | - |
 | **Worst Negative Slack (WNS)** | **{metrics.get('wns', 0.0):+.3f} ns** | - | **{status_badge}** |
 
