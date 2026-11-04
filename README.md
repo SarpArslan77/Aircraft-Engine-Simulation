@@ -27,12 +27,12 @@ A root-level `Makefile` provides a unified, cross-platform entry point for devel
 
 | Command | Description | Wrapped Pipeline Stage |
 | :--- | :--- | :--- |
-| `make help` | Display formatted target palette and parameter override syntax | Dynamic inline docstring parser |
-| `make sim` | Run software reference models & Cocotb hardware co-simulation | `python main.py` |
-| `make synth` | Run single Out-of-Context (OOC) Vivado synthesis & STA | `python main.py --synth` |
-| `make sweep` | Execute binary search clock frequency sweep for $F_{\text{max}}$ | `python main.py --sweep` |
-| `make lint` | Run static code analysis checks (Ruff & Verible) | `python main.py --lint` |
-| `make clean` | Remove transient artifacts (`sim_build/`, `*.log`, `*.jou`, `results.xml`) | Cross-platform Python cleaner |
+| <code>make&nbsp;help</code> | Display formatted target palette and parameter override syntax | Dynamic inline docstring parser |
+| <code>make&nbsp;sim</code> | Run software reference models & Cocotb hardware co-simulation | `python main.py` |
+| <code>make&nbsp;synth</code> | Run single Out-of-Context (OOC) Vivado synthesis & STA | `python main.py --synth` |
+| <code>make&nbsp;sweep</code> | Execute binary search clock frequency sweep for $F_{\text{max}}$ | `python main.py --sweep` |
+| <code>make&nbsp;lint</code> | Run static code analysis checks (Ruff & Verible) | `python main.py --lint` |
+| <code>make&nbsp;clean</code> | Remove transient artifacts (`sim_build/`, `*.log`, `*.jou`, `results.xml`) | Cross-platform Python cleaner |
 
 ### Dynamic Parameter Overrides
 
@@ -44,7 +44,7 @@ make synth TARGET_PERIOD=8.5
 
 # Run a binary search frequency sweep across custom bounds [LOW, HIGH] in ns
 make sweep SWEEP_LOW_PERIOD=1.5 SWEEP_HIGH_PERIOD=8.0
-
+```
 ---
 
 ## Verification & Workflow Automation
@@ -82,8 +82,8 @@ The simulator exposes a standard 32-bit AXI4-Lite bus interface:
 | **Slice LUTs (Logic)** | 1,175 | 20,800 | 5.65 % |
 | **Slice Registers (Flip-Flops)** | 643 | 41,600 | 1.55 % |
 | **DSP48E1 Slices** | 4 | 90 | 4.44 % |
-| **Target Clock ($F_{	ext{target}}$)** | 90.91 MHz (11.00 ns) | - | - |
-| **Achieved Clock ($F_{	ext{max}}$)** | **91.09 MHz** | - | - |
+| **Target Clock ($F_{\text{target}}$)** | 90.91 MHz<br>(11.00&nbsp;ns) | - | - |
+| **Achieved Clock ($F_{\text{max}}$)** | **91.09 MHz** | - | - |
 | **Worst Negative Slack (WNS)** | **+0.022 ns** | - | **Timing Met** |
 
 *Raw Vivado implementation reports: [`build_synth/utilization.rpt`](build_synth/utilization.rpt) and [`build_synth/timing.rpt`](build_synth/timing.rpt).*
@@ -94,26 +94,26 @@ The simulator exposes a standard 32-bit AXI4-Lite bus interface:
 ## Repository Structure
 
 ```directory
-├── .github/workflows/            # CI/CD pipelines (Cocotb tests, Ruff, Verible)
-├── build_synth/                  # Generated Vivado synthesis and timing reports
-├── rtl/                          # Synthesizable Verilog HDL implementation
-│   ├── aircraft_engine_simulator_top.v   # Top-level entity with 4-state supervisory FSM
-│   ├── axi4_lite.v                       # Memory-mapped bus interface (CSR)
-│   ├── calculate_target_values.v         # Pipelined target state evaluator
-│   ├── calculate_derivatives.v           # Division-free derivative stage
-│   ├── calculate_next_steps.v            # Euler integrator with saturation protection
-│   └── clock_prescaler.v                 # Parameterized hardware clock divider
-├── scripts/                      # Automation & toolchain scripts
+├── .github/workflows/                            # CI/CD pipelines (Cocotb tests, Ruff, Verible)
+├── build_synth/                                  # Generated Vivado synthesis and timing reports
+├── rtl/                                          # Synthesizable Verilog HDL implementation
+│   ├── aircraft_engine_simulator_top.v           # Top-level entity with 4-state supervisory FSM
+│   ├── axi4_lite.v                               # Memory-mapped bus interface (CSR)
+│   ├── calculate_target_values.v                 # Pipelined target state evaluator
+│   ├── calculate_derivatives.v                   # Division-free derivative stage
+│   ├── calculate_next_steps.v                    # Euler integrator with saturation protection
+│   └── clock_prescaler.v                         # Parameterized hardware clock divider
+├── scripts/                                      # Automation & toolchain scripts
 │   ├── locate_iverilog_executable.py
-│   ├── run_synthesis.py                  # Python wrapper for automated timing sweeps
-│   └── synth.tcl                         # Vivado Out-of-Context (OOC) batch script
-├── sim_model/                    # Python reference models & visualization
+│   ├── run_synthesis.py                          # Python wrapper for automated timing sweeps
+│   └── synth.tcl                                 # Vivado Out-of-Context (OOC) batch script
+├── sim_model/                                    # Python reference models & visualization
 │   ├── aircraft_engine_simulator_floating.py     # Continuous floating-point reference model
 │   ├── aircraft_engine_simulator_fixed_point.py  # Bit-true Q16.16 fixed-point model
 │   ├── graph_visualizer.py                       # Matplotlib dual-mode inspection UI
 │   ├── quantize_floats.py                        # Fixed-point quantization & saturation utilities
 │   └── verify_software.py                        # SQNR, MAE, MSE, and RMSE metric evaluation
-├── tb/                           # Cocotb hardware-in-the-loop testbench
-│   └── test_engine.py                    # AXI bus drivers, telemetry parsers, and assertions
-├── main.py                       # Top-level execution & simulation runner script
+├── tb/                                           # Cocotb hardware-in-the-loop testbench
+│   └── test_engine.py                            # AXI bus drivers, telemetry parsers, and assertions
+├── main.py                                       # Top-level execution & simulation runner script
 └── README.md
