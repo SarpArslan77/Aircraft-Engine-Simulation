@@ -61,15 +61,14 @@ The project features a highly automated execution script (`main.py`) which manag
 ## Memory-Mapped Register Map
 
 The simulator exposes a standard 32-bit AXI4-Lite bus interface:
-
 | Offset | Register Name | Access | Description / Bit Assignment |
 | :---: | :--- | :---: | :--- |
 | **`0x00`** | `ADDR_CONTROL` | R/W | **Bit 0:** `start_engine`<br>**Bit 1:** `restart_engine` |
 | **`0x04`** | `ADDR_STATUS` | RO | **Bit 0:** `is_engine_broken` (1 = Emergency trip active) |
-| **`0x08`** | `ADDR_FUEL_FLOW_COMMAND` | R/W | Commanded fuel flow rate ($W_f$) in $Q16.16$ [$\text{kg/h}$] |
-| **`0x0C`** | `ADDR_SPEED` | RO | Current rotational speed ($N$) in $Q16.16$ [$\%$] |
-| **`0x10`** | `ADDR_PRESSURE` | RO | Current compressor pressure ($P$) in $Q16.16$ [$\text{kPa}$] |
-| **`0x14`** | `ADDR_TEMPERATURE` | RO | Current exhaust gas temperature ($T$) in $Q16.16$ [$^\circ\text{C}$] |
+| **`0x08`** | `ADDR_FUEL_FLOW_COMMAND` | R/W | Commanded fuel flow rate ($W_f$) in `Q16.16` [kg/h] |
+| **`0x0C`** | `ADDR_SPEED` | RO | Current rotational speed ($N$) in `Q16.16` [%] |
+| **`0x10`** | `ADDR_PRESSURE` | RO | Current compressor pressure ($P$) in `Q16.16` [kPa] |
+| **`0x14`** | `ADDR_TEMPERATURE` | RO | Current exhaust gas temperature ($T$) in `Q16.16` [°C] |
 | **`0x18`** | `ADDR_FAULT_INJECTION` | R/W | **Bit 0:** `fault_compressor_stall` ($K_{\text{cool}} \rightarrow 0$)<br>**Bit 1:** `fault_sensor_corruption` |
 
 ---
