@@ -21,6 +21,32 @@ The engine dynamics track key physical states—**Rotational Speed ($N$)**, **Co
 
 ---
 
+## Quickstart & Build Targets
+
+A root-level `Makefile` provides a unified, cross-platform entry point for developers and CI runners across Windows, Linux, and macOS:
+
+| Command | Description | Wrapped Pipeline Stage |
+| :--- | :--- | :--- |
+| `make help` | Display formatted target palette and parameter override syntax | Dynamic inline docstring parser |
+| `make sim` | Run software reference models & Cocotb hardware co-simulation | `python main.py` |
+| `make synth` | Run single Out-of-Context (OOC) Vivado synthesis & STA | `python main.py --synth` |
+| `make sweep` | Execute binary search clock frequency sweep for $F_{\text{max}}$ | `python main.py --sweep` |
+| `make lint` | Run static code analysis checks (Ruff & Verible) | `python main.py --lint` |
+| `make clean` | Remove transient artifacts (`sim_build/`, `*.log`, `*.jou`, `results.xml`) | Cross-platform Python cleaner |
+
+### Dynamic Parameter Overrides
+
+Default clock period constraints and frequency sweep intervals can be overridden directly from the command line without modifying source files:
+
+```bash
+# Run synthesis with a custom target period constraint (e.g., 8.5 ns)
+make synth TARGET_PERIOD=8.5
+
+# Run a binary search frequency sweep across custom bounds [LOW, HIGH] in ns
+make sweep SWEEP_LOW_PERIOD=1.5 SWEEP_HIGH_PERIOD=8.0
+
+---
+
 ## Verification & Workflow Automation
 
 The project features a highly automated execution script (`main.py`) which manages the full verification and synthesis lifecycle:
