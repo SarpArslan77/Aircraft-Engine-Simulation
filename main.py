@@ -1,14 +1,12 @@
 
 #* main.py
 
-#TODO Add central configuration files to root directory, which has all data for different file types.
-#TODO Control the synthesis reports and check for anomalies.
-
 #* ======= Libraries =======
 # ------- Natives. -------
 import json
 import numpy as np
 import os
+import shutil
 import subprocess
 import sys
 
@@ -24,7 +22,7 @@ from numpy.typing import NDArray
 
 # ------- Customs. -------
 from scripts.generate_verilog_header_file import generate_verilog_header_file
-from scripts.locate_iverilog_executable import locate_iverilog_executable
+from scripts.locate_executables import locate_iverilog_executable, locate_verilator_executable
 from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
 from sim_model.aircraft_engine_simulator_fixed_point import (
     AircraftEngineSimulatorFixedPoint,
@@ -42,18 +40,19 @@ from subprocess import CompletedProcess
 #* ======= Main Loop =======
 if __name__ == "__main__":
     # ------- Configurations. -------
-    # Locates Icarus Verilog and adds to the environment path.
-    iverilog_executable_path: Path = locate_iverilog_executable(hardcoded_iverilog_path = "C:/iverilog/bin")
-    iverilog_bin_dir: str = str(iverilog_executable_path.parent)
+    # Locates Icarus Verilog and adds to system PATH if present.
+    iverilog_executable_path: Path | None = None
 
-    #? "PATH": OSvariable containing list of folders, where
-    #   executable programs live
-    #? os.environ: Dictionary containing all current system environment variables.
-    if iverilog_bin_dir not in os.environ.get("PATH", ""):
-        #? os.pathsep: Gives back the correct seperator for the active OS.
-        os.environ["PATH"] = iverilog_bin_dir + os.pathsep + os.environ.get("PATH", "")
+    try:
+        iverilog_executable_path = locate_iverilog_executable(hardcoded_iverilog_path = "C:/iverilog/bin")
+        iverilog_bin_dir: str = str(iverilog_executable_path.parent)
 
-    # Silents the Python warning filter in the environment for Cocotb runner.
+        if iverilog_bin_dir not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = iverilog_bin_dir + os.pathsep + os.environ.get("PATH", "")
+    except FileNotFoundError:
+        print("[NOTE] Icarus Verilog not found locally (hardware sim will be enforced in CI).")
+
+    # Silences Python warning filter for Cocotb runner.
     os.environ["PYTHONWARNINGS"] = "ignore::DeprecationWarning"
 
     # ------- Constants. -------
@@ -258,28 +257,92 @@ if __name__ == "__main__":
     # 'python main.py --lint'.
     if args.lint:
         print()
-        print("Running linters (Ruff & Verible)...")
+        print("Running linters (Ruff, Verible and Verilator)...")
 
-        # Runs Ruff.
-        ruff_result: CompletedProcess = subprocess.run(
-            ["ruff", "check", "."],
-            cwd = MAIN_DIR_PATH
-        )
+        # IF locally exists, runs Ruff.
+        ruff_path: str | None = shutil.which(cmd = "ruff")
+        if ruff_path is not None:
+            ruff_cmd: list[str] = [
+                "ruff",
+                "check",
+                "."
+            ]
 
-        # Runs Verible.
-        verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
+            ruff_result: CompletedProcess = subprocess.run(
+                ruff_cmd,
+                cwd = MAIN_DIR_PATH
+            )
 
-        verible_result: CompletedProcess = subprocess.run(
-            ["verible-verilog-lint", "--rules_config", ".rules.verible_lint"] + verilog_file_paths,
-            cwd = MAIN_DIR_PATH
-        )
+            ruff_status: str = "SUCCESS" if ruff_result.returncode == 0 else "FAILED"
+            
+            print(f"-> [{ruff_status}] Ruff")
+        else:
+            ruff_status: str = "NOT FOUND"
+            print("[NOT FOUND] Ruff not found locally (enforced via GitHub Action 'Ruff').")
+
+        # IF locally exists, runs Verible.
+        verible_path: str | None = shutil.which(cmd = "verible-verilog-lint")
+        if verible_path is not None:
+            verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
+
+            verible_cmd: list[str] = [
+                "verible-verilog-lint",
+                "--rules_config",
+                ".rules.verible_lint"
+            ] + verilog_file_paths
+
+            verible_result: CompletedProcess = subprocess.run(
+                verible_cmd,
+                cwd = MAIN_DIR_PATH
+            )
+
+            verible_status: str = "SUCCESS" if verible_result.returncode == 0 else "FAILED"
+
+            print(f"-> [{verible_status}] Verible")
+        else:
+            verible_status: str = "NOT FOUND"
+            print("[NOT FOUND] Verible not found locally (enforced via GitHub Action 'Verible').")
+
+        # Runs Verilator.
+        verilator_executable_path: Path | None = None
+    
+        try:
+            verilator_executable_path = locate_verilator_executable(hardcoded_verilator_path = "D:/Programs/oss-cad-suite")
+            verilator_bin_dir: str = str(verilator_executable_path.parent)
+    
+            if verilator_bin_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = verilator_bin_dir + os.pathsep + os.environ.get("PATH", "")
+        except FileNotFoundError:
+            print()
+            print("[NOTE] Verilator not found locally (DO-254 linting will be enforced in CI).")
+        
+        if verilator_executable_path is not None:
+            verilator_cmd: list[str] = [
+                str(verilator_executable_path),
+                "--lint-only",
+                "-Wall",
+                "-I" + str(RTL_DIR_PATH),
+                str(RTL_DIR_PATH/f"{TOP_MODULE}.v")
+            ]
+            
+            verilator_result: CompletedProcess = subprocess.run(
+                verilator_cmd,
+                cwd = MAIN_DIR_PATH
+            )
+
+            verilator_status: str = "SUCCESS" if verilator_result.returncode == 0 else "FAILED"
+
+            print(f"-> [{verilator_status}] Verilator")
+        else:
+            verilator_status: str = "NOT FOUND"
+            print("[NOT FOUND] Verilator not found locally (enforced via GitHub Action 'Verilator').")
 
         # Checks for failures.
-        if (ruff_result.returncode != 0) or (verible_result.returncode != 0):
-            print("Linting failed!")
-            sys.exit(1)
+        if (ruff_status != "FAILED") and (verible_status != "FAILED") and (verilator_status != "FAILED"):
+            print("--> Linting passed! <--")
         else:
-            print("Linting passed!")
+            print("--> Linting failed! <--")
+            sys.exit(1)
 
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
