@@ -16,10 +16,12 @@ module clock_prescaler #(
     output reg clk_en_1ms
 );
     // ------- Local Parameter. -------
-    localparam COUNTER_LIMIT = SYSTEM_CLK_FREQ / TARGET_CLK_FREQ;
+    localparam [31:0] COUNTER_LIMIT = SYSTEM_CLK_FREQ / TARGET_CLK_FREQ;
+    localparam COUNTER_WIDTH = $clog2(COUNTER_LIMIT + 1);
+    localparam [COUNTER_WIDTH-1:0] COUNTER_MAX = COUNTER_LIMIT[COUNTER_WIDTH-1:0] - 1'b1;
 
     // ------- Register. -------
-    reg [$clog2(COUNTER_LIMIT+1)-1:0] counter;
+    reg [COUNTER_WIDTH-1:0] counter;
 
     // ------- Sequential Logic. -------
     always @(posedge clk) begin
@@ -29,7 +31,7 @@ module clock_prescaler #(
             clk_en_1ms <= 0;
         end
         else begin
-            if (counter == (COUNTER_LIMIT-1)) begin
+            if (counter == COUNTER_MAX) begin
                 counter <= 0;
 
                 clk_en_1ms <= 1;

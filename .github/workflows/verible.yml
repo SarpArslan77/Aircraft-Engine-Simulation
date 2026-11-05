@@ -28,7 +28,6 @@ jobs:
         #? shell: bash -> Executes the script in 'bash' shell.
         shell: bash
         run: |
-        
           #? set -euo pipefail: 'Bash Strict Mode' to prevent silent errors.
           #   -e (errexit): Exit immediately if any command exists with failure status.
           #   -u (nounset): Treats uninitialized variables as an error and exits immediately.

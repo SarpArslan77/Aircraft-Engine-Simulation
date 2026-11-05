@@ -39,15 +39,36 @@ module calculate_target_values #(
 
     // ------- Wires. -------
     // Rotational Speed (RS).
-    assign target_rotational_speed = (speed_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_shifted = (speed_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
+
+    assign target_rotational_speed = speed_mult_shifted[TOTAL_BIT_WIDTH-1:0];
 
     // Compressor Pressure (CP).
-    wire signed [TOTAL_BIT_WIDTH-1:0] speed_squared_q32 = speed_squared_q >>> FRACTIONAL_BIT_WIDTH;
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_shifted = (speed_squared_q >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [TOTAL_BIT_WIDTH-1:0] speed_squared_q32 = speed_squared_shifted[TOTAL_BIT_WIDTH-1:0];
 
-    assign target_compressor_pressure = (AMBIENT_PRESSURE + (pressure_mult_q >>> FRACTIONAL_BIT_WIDTH));
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_shifted = (pressure_mult_q >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [TOTAL_BIT_WIDTH-1:0] pressure_mult_q32 = pressure_mult_shifted[TOTAL_BIT_WIDTH-1:0];
+
+    assign target_compressor_pressure = (AMBIENT_PRESSURE + pressure_mult_q32);
 
     // Exhaust Gas Temperature (EGT).
-    assign target_exhaust_gas_temperature = (AMBIENT_TEMPERATURE + (heat_mult_q2 >>> FRACTIONAL_BIT_WIDTH) - (cooling_mult_q2 >>> FRACTIONAL_BIT_WIDTH));
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_shifted = (heat_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [TOTAL_BIT_WIDTH-1:0] heat_mult_q32 = heat_mult_shifted[TOTAL_BIT_WIDTH-1:0];
+
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_shifted = (cooling_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [TOTAL_BIT_WIDTH-1:0] cooling_mult_q32 = cooling_mult_shifted[TOTAL_BIT_WIDTH-1:0];
+
+    assign target_exhaust_gas_temperature = (AMBIENT_TEMPERATURE + heat_mult_q32 - cooling_mult_q32);
+
+    // Sinks discarded upper 32 bits of 64-bit intermediate products.
+    wire _unused_targets = &{1'b0,
+        speed_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        speed_squared_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        pressure_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        heat_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        cooling_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH]
+    };
 
     // ------- Registers. -------
     // RS.
