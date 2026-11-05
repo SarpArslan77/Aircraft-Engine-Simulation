@@ -83,17 +83,16 @@ $$dT[k] = \left( C_T \cdot \left( T_{\text{target}}[k] - T[k] \right) \right) \g
 Hardware saturation logic bounds accumulated state values to prevent arithmetic two's-complement overflow and maintain true physical bounds:
 
 * **Non-Negative Rotational Speed:**
-  $$N[k+1] = \max\left(0, \, N[k] + dN[k]\right)$$
+  $$N[k+1] = \max(0, N[k] + dN[k])$$
 
 * **Atmospheric Pressure Lower Bound:**
-  $$P[k+1] = \max\left(P_{\text{amb}}, \, P[k] + dP[k]\right)$$
+  $$P[k+1] = \max(P_{\text{amb}}, P[k] + dP[k])$$
 
 * **Ambient Temperature Lower Bound:**
-  $$T[k+1] = \max\left(T_{\text{amb}}, \, T[k] + dT[k]\right)$$
+  $$T[k+1] = \max(T_{\text{amb}}, T[k] + dT[k])$$
 
 * **Emergency Cutoff Trip Condition:**
-
-  $$\text{Safety Trip} = \begin{cases} 1, & \text{if } \left(N[k] > 110.0\%\right) \;\lor\; \left(T[k] > 1100.0^\circ\text{C}\right) \\ 0, & \text{otherwise} \end{cases}$$
+  $$\text{Safety Trip} = (N[k] > 110\text{%}) \;\lor\; (T[k] > 1100^\circ\text{C})$$
 
 ---
 
