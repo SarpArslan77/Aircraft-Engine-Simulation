@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2025.2 (win64) Build 6299465 Fri Nov 14 19:35:11 GMT 2025
-| Date         : Wed Nov  4 11:40:02 2026
+| Date         : Wed Nov  4 21:43:59 2026
 | Host         : [ANONYMIZED_BUILD_HOST]
 | Command      : report_utilization -file utilization.rpt
 | Design       : aircraft_engine_simulator_top
