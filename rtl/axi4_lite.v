@@ -116,13 +116,14 @@ module axi4_lite #(
     localparam [7:0] ADDR_TEMPERATURE = 8'h14; // Exhaust Gas Temperature.
     localparam [7:0] ADDR_FAULT_INJECTION = 8'h18; // Intentional Internal Parameter Altercation.
 
-    // Constant.
-    localparam [TOTAL_BIT_WIDTH-1:0] ZERO_32BIT = {TOTAL_BIT_WIDTH{1'b0}};
-
     // ------- Registers. -------
     reg [TOTAL_BIT_WIDTH-1:0] control_reg;
     reg [TOTAL_BIT_WIDTH-1:0] fuel_flow_command_reg;
     reg [TOTAL_BIT_WIDTH-1:0] fault_injection_reg;
+
+    // ------- Wires. -------
+    // Sinks unreferenced AXI address bits and protection qualifiers.
+    wire _unused_axi = &{1'b0, s_axi_awaddr[TOTAL_BIT_WIDTH-1:8], s_axi_awprot, s_axi_araddr[TOTAL_BIT_WIDTH-1:8], s_axi_arprot};
 
     // ------- Assignments. -------
     assign start_engine = control_reg[0]; // Starts the engine.

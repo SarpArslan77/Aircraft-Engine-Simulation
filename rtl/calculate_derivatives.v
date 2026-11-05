@@ -41,15 +41,25 @@ module calculate_derivatives #(
     // ------- Wires. -------
     // Rotational Speed (RS).
     wire signed [TOTAL_BIT_WIDTH-1:0] rotational_speed_delta = target_rotational_speed - current_rotational_speed;
-    assign d_rotational_speed = (rotational_speed_mult_q >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] d_rotational_speed_shifted = rotational_speed_mult_q >>> FRACTIONAL_BIT_WIDTH;
+    assign d_rotational_speed = d_rotational_speed_shifted[TOTAL_BIT_WIDTH-1:0];
 
     // Compressor Pressure (CP).
     wire signed [TOTAL_BIT_WIDTH-1:0] compressor_pressure_delta = target_compressor_pressure - current_compressor_pressure;
-    assign d_compressor_pressure = (compressor_pressure_mult_q >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] d_compressor_pressure_shifted = compressor_pressure_mult_q >>> FRACTIONAL_BIT_WIDTH;
+    assign d_compressor_pressure = d_compressor_pressure_shifted[TOTAL_BIT_WIDTH-1:0];
 
     // Exhaust Gas Temperature (EGT).
     wire signed [TOTAL_BIT_WIDTH-1:0] exhaust_gas_temperature_delta = target_exhaust_gas_temperature - current_exhaust_gas_temperature;
-    assign d_exhaust_gas_temperature = (exhaust_gas_temperature_mult_q >>> FRACTIONAL_BIT_WIDTH);
+    wire signed [MULTIPLICATION_BIT_WIDTH-1:0] d_exhaust_gas_temperature_shifted = exhaust_gas_temperature_mult_q >>> FRACTIONAL_BIT_WIDTH;
+    assign d_exhaust_gas_temperature = d_exhaust_gas_temperature_shifted[TOTAL_BIT_WIDTH-1:0];
+
+    // Sinks discarded upper 32 bits of the 64-bit intermediate shifts.
+    wire _unused_derivatives = &{1'b0,
+        d_rotational_speed_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        d_compressor_pressure_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
+        d_exhaust_gas_temperature_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH]
+    };
 
     // ------- Registers. -------
     (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_q;
