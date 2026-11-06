@@ -14,7 +14,7 @@ module aircraft_engine_simulator_top #(
     parameter TARGET_CLK_FREQ = `TARGET_CLK_FREQ,
 
     // -> Data Representation.
-    parameter INTEGER_BIT_WIDTH = `INTEGER_BIT_WIDTH,
+    parameter INT_BIT_WIDTH = `INT_BIT_WIDTH,
     parameter FRACTIONAL_BIT_WIDTH = `FRACTIONAL_BIT_WIDTH,
 
     // -> Ambient Conditions.
@@ -42,17 +42,17 @@ module aircraft_engine_simulator_top #(
 
     // -> AXI4-Lite Slave Channels.
     // AW.
-    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_awaddr,
+    input wire [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_awaddr,
     input wire [2:0] s_axi_awprot,
     input wire s_axi_awvalid,
 
-    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_wdata,
+    input wire [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_wdata,
     input wire [3:0] s_axi_wstrb,
     input wire s_axi_wvalid,
 
     input wire s_axi_bready,
 
-    input wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_araddr,
+    input wire [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_araddr,
     input wire [2:0] s_axi_arprot,
     input wire s_axi_arvalid,
 
@@ -60,8 +60,8 @@ module aircraft_engine_simulator_top #(
 
     // ------- Outputs. -------
     // -> Currents.
-    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_fuel_flow,
-    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_speed, current_pressure, current_temperature,
+    output wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_fuel_flow,
+    output wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_speed, current_pressure, current_temperature,
 
     // -> AXI4-Lite Slave Channels.
     // AW.
@@ -79,7 +79,7 @@ module aircraft_engine_simulator_top #(
 
     // R.
     output wire s_axi_rvalid,
-    output wire [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_rdata,
+    output wire [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] s_axi_rdata,
     output wire [1:0] s_axi_rresp,
 
     // -> Engine Controls.
@@ -91,7 +91,7 @@ module aircraft_engine_simulator_top #(
 );
     // ------- Local Parameters. -------
     // -> Data Representation.
-    localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
+    localparam TOTAL_BIT_WIDTH = INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
 
     // -> States.
     localparam TOTAL_STATE_COUNT = 4;
@@ -127,7 +127,7 @@ module aircraft_engine_simulator_top #(
     // -> RI.
     wire start_engine;
     wire restart_engine;
-    wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_command;
+    wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_cmd;
 
     // -> TC.
     wire signed [TOTAL_BIT_WIDTH-1:0] target_speed;
@@ -232,7 +232,7 @@ module aircraft_engine_simulator_top #(
         .start_engine(start_engine),
         .restart_engine(restart_engine),
 
-        .fuel_flow_command(fuel_flow_command),
+        .fuel_flow_cmd(fuel_flow_cmd),
 
         .fault_compressor_stall(fault_compressor_stall),
         .fault_sensor_corruption(fault_sensor_corruption)
@@ -242,7 +242,7 @@ module aircraft_engine_simulator_top #(
     calculate_target_values #(
         // Parameters.
         // Data Representation.
-        .INTEGER_BIT_WIDTH(INTEGER_BIT_WIDTH),
+        .INT_BIT_WIDTH(INT_BIT_WIDTH),
         .FRACTIONAL_BIT_WIDTH(FRACTIONAL_BIT_WIDTH),
 
         // Ambient Conditions.
@@ -273,7 +273,7 @@ module aircraft_engine_simulator_top #(
     calculate_derivatives #(
         // Parameters.
         // Data Representation.
-        .INTEGER_BIT_WIDTH(INTEGER_BIT_WIDTH),
+        .INT_BIT_WIDTH(INT_BIT_WIDTH),
         .FRACTIONAL_BIT_WIDTH(FRACTIONAL_BIT_WIDTH),
 
         // Time Constants (Inertia).
@@ -304,7 +304,7 @@ module aircraft_engine_simulator_top #(
     calculate_next_steps #(
         // Parameters.
         // Data Representation.
-        .INTEGER_BIT_WIDTH(INTEGER_BIT_WIDTH),
+        .INT_BIT_WIDTH(INT_BIT_WIDTH),
         .FRACTIONAL_BIT_WIDTH(FRACTIONAL_BIT_WIDTH),
 
         // Ambient Conditions.
@@ -365,7 +365,7 @@ module aircraft_engine_simulator_top #(
 
                 STATE_RUNNING: begin
                     // Passes normal operational fuel flow and actual gain coefficients.
-                    current_fuel_flow_r <= fuel_flow_command;
+                    current_fuel_flow_r <= fuel_flow_cmd;
 
                     speed_gain_coeff_r <= SPEED_GAIN_COEFF;
                     compressor_pressure_gain_r <= COMPRESSOR_PRESSURE_GAIN;

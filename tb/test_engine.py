@@ -57,7 +57,7 @@ class ConfigEngineTester:
     Attributes:
         addr_control (int): Byte address offset for the Engine Control Register (0x00).
         addr_status (int): Byte address offset for the read-only Safety Status Register (0x04).
-        addr_fuel_flow_command (int): Byte address offset for Commanded Fuel Flow in Q16.16 format (0x08).
+        addr_fuel_flow_cmd (int): Byte address offset for Commanded Fuel Flow in Q16.16 format (0x08).
         addr_speed (int): Byte address offset for Rotational Speed telemetry in Q16.16 format (0x0C).
         addr_pressure (int): Byte address offset for Compressor Pressure telemetry in Q16.16 format (0x10).
         addr_temperature (int): Byte address offset for Exhaust Gas Temperature telemetry in Q16.16 format (0x14).
@@ -75,7 +75,7 @@ class ConfigEngineTester:
     # ------- Address Map Offsets. -------
     addr_control: int
     addr_status: int
-    addr_fuel_flow_command: int
+    addr_fuel_flow_cmd: int
     addr_speed: int
     addr_pressure: int
     addr_temperature: int
@@ -267,21 +267,21 @@ class EngineTester:
         )
 
         # Writes to fuel command register (10 kg/h in Q16.16 = 10 << 16).
-        fuel_command_s16: int = 10 << self._cfg.fractional_bit_width
-        fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
+        fuel_cmd_s16: int = 10 << self._cfg.fractional_bit_width
+        fuel_cmd_bytes: bytes = fuel_cmd_s16.to_bytes(
             4,
             "little",
             signed = True
         )
 
         await axil_master.write(
-            address = self._cfg.addr_fuel_flow_command,
-            data = fuel_command_bytes    
+            address = self._cfg.addr_fuel_flow_cmd,
+            data = fuel_cmd_bytes    
         )
 
         # Reads it back to verify, that the register stored it.
         read_fuel_value_bytes = await axil_master.read(
-            address = self._cfg.addr_fuel_flow_command,
+            address = self._cfg.addr_fuel_flow_cmd,
             length = 4
         )
         read_fuel_value_s16: int = int.from_bytes(
@@ -290,7 +290,7 @@ class EngineTester:
             signed = True    
         )
 
-        assert (read_fuel_value_s16 == fuel_command_s16), f"Fuel mismatch! Wrote {fuel_command_s16}, got {read_fuel_value_s16}"
+        assert (read_fuel_value_s16 == fuel_cmd_s16), f"Fuel mismatch! Wrote {fuel_cmd_s16}, got {read_fuel_value_s16}"
         dut._log.info(msg = f"Fuel command register verified: {read_fuel_value_s16 >> 16} kg/h")
 
         # Starts the engine (a.k.a. sets the bit '0' in control register).
@@ -434,7 +434,7 @@ class EngineTester:
             )
 
             await axil_master.write(
-                address = self._cfg.addr_fuel_flow_command,
+                address = self._cfg.addr_fuel_flow_cmd,
                 data = fuel_flow_bytes
             )
 
@@ -555,21 +555,21 @@ class EngineTester:
         )
 
         # Writes to fuel command register (90 kg/h in Q16.16 = 90 << 16).
-        fuel_command_s16: int = 90 << self._cfg.fractional_bit_width
-        fuel_command_bytes: bytes = fuel_command_s16.to_bytes(
+        fuel_cmd_s16: int = 90 << self._cfg.fractional_bit_width
+        fuel_cmd_bytes: bytes = fuel_cmd_s16.to_bytes(
             4,
             "little",
             signed = True
         )
 
         await axil_master.write(
-            address = self._cfg.addr_fuel_flow_command,
-            data = fuel_command_bytes
+            address = self._cfg.addr_fuel_flow_cmd,
+            data = fuel_cmd_bytes
         )
         
         # Reads it back to verify, that the register stored it.
         read_fuel_value_bytes = await axil_master.read(
-            address = self._cfg.addr_fuel_flow_command,
+            address = self._cfg.addr_fuel_flow_cmd,
             length = 4
         )
         read_fuel_value_s16: int = int.from_bytes(
@@ -578,7 +578,7 @@ class EngineTester:
             signed = True
         )
 
-        assert (read_fuel_value_s16 == fuel_command_s16), f"Fuel mismatch! Wrote {fuel_command_s16}, got {read_fuel_value_s16}"
+        assert (read_fuel_value_s16 == fuel_cmd_s16), f"Fuel mismatch! Wrote {fuel_cmd_s16}, got {read_fuel_value_s16}"
         dut._log.info(msg = f"Fuel command register verified: {read_fuel_value_s16 >> 16} kg/h")
 
         # Waits for Euoler integration cycles.
@@ -667,13 +667,26 @@ def load_config() -> dict[str, Any]:
     #   --> Absolute path has to be passed and not just json file name.
     MAIN_DIR_PATH: Path = Path(__file__).resolve().parent
     JSON_FILE_PATH: Path = MAIN_DIR_PATH / "config.json" #TODO FH
-    
-    with open(
-        file = JSON_FILE_PATH, 
-        mode = "r",
-        encoding = "utf-8"
-    ) as f:
-        config: dict[str, dict[str, Any]] = json.load(f)
+
+    try:
+        with open(
+            file = JSON_FILE_PATH, 
+            mode = "r",
+            encoding = "utf-8"
+        ) as f:
+            config: dict[str, dict[str, Any]] = json.load(f)
+    except FileNotFoundError as err:
+        raise FileNotFoundError(
+            f"Cocotb testbench configuration file not found at '{JSON_FILE_PATH}'."
+        ) from err
+    except json.JSONDecodeError as err:
+        #? err.lineno: Row number of the encountered error.
+        #? err.colno: Column number of the encountered error.
+        #? err.msg: Message of the encountered error.
+        raise ValueError(
+            f"Corrupt or malformed JSON syntax encountered in '{JSON_FILE_PATH}' "
+            f"at line {err.lineno}, column {err.colno}: {err.msg}"
+        ) from err
 
     return config
 

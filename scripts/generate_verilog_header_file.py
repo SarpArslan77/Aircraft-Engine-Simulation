@@ -54,9 +54,23 @@ def generate_verilog_header_file(
     )
 
     # Saves the file.
-    with open(
-        file = verilog_header_file_dir_path / file_name,
-        mode = "w",
-        encoding = "utf-8"
-    ) as file:
-        file.write("\n".join(lines))
+    target_verilog_header_file_path: Path = verilog_header_file_dir_path / file_name
+
+    try:
+        # Ensures target directory exists.
+        target_verilog_header_file_path.parent.mkdir(
+            parents = True,
+            exist_ok = True
+        )
+
+        with open(
+            file = target_verilog_header_file_path,
+            mode = "w",
+            encoding = "utf-8"
+        ) as f:
+            f.write("\n".join(lines))
+    except OSError as err:
+        # Halts pipeline before Vivado or Icarus Verilog is invoked on a missing header.
+        raise RuntimeError(
+            f"Failed to write synthesizable Verilog header to '{target_verilog_header_file_path}': {err}"
+        ) from err

@@ -1,0 +1,45 @@
+[representation]
+int_bit_width = 16
+fractional_bit_width = 16
+
+[simulation]
+simulation_step = 1e-3
+total_simulation_time = 20.0 # [s].
+
+[physics.ambient]
+ambient_pressure = 101.3 # [kPa].
+ambient_temperature = 15.0
+
+[physics.inertia]
+rotor_inertial_time_const = 1.5
+pressure_volume_time_const = 0.15
+thermal_time_const = 0.8
+
+[physics.gain]
+speed_gain_coeff = 1.0
+compressor_pressure_gain = 15e-3
+combustion_heat_gain = 15.0
+mass_overflow_cooling_gain = 6.0
+
+[physics.limit]
+max_rotational_speed = 110.0
+max_compressor_temperature = 1100.0
+
+[hardware.synthesis]
+synth_target_period = 11.00 # [ns].
+sweep_low_period = 2.00 # [ns].
+sweep_high_period = 20.00 # [ns].
+
+[hardware.register]
+addr_control = 0x00
+addr_status = 0x04
+addr_fuel_flow_cmd = 0x08
+addr_speed = 0x0C
+addr_pressure = 0x10
+addr_temperature = 0x14
+addr_fault_injection = 0x18
+
+[testbench]
+smoke_test_duration = 5e-2 # [s].
+compressor_stall_test_duration = 5e-1 # [s].
+max_thermal_threshold_cross_duration = 3.0 # [s].
