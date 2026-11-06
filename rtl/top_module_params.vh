@@ -3,7 +3,7 @@
 
 // Auto-generated header file
 
-`define INTEGER_BIT_WIDTH 16
+`define INT_BIT_WIDTH 16
 `define FRACTIONAL_BIT_WIDTH 16
 `define AMBIENT_PRESSURE 6638797
 `define AMBIENT_TEMPERATURE 983040

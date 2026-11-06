@@ -287,7 +287,7 @@ if __name__ == "__main__":
         verilator_executable_path: Path | None = None
     
         try:
-            verilator_executable_path = locate_verilator_executable(hardcoded_verilator_path = "D:/Programs/oss-cad-suite")
+            verilator_executable_path = locate_verilator_executable(hardcoded_verilator_path = Path("D:/Programs/oss-cad-suite"))
             verilator_bin_dir: str = str(verilator_executable_path.parent)
     
             if verilator_bin_dir not in os.environ.get("PATH", ""):

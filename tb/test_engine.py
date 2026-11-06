@@ -57,7 +57,7 @@ class ConfigEngineTester:
     Attributes:
         addr_control (int): Byte address offset for the Engine Control Register (0x00).
         addr_status (int): Byte address offset for the read-only Safety Status Register (0x04).
-        fuel_flow_cmd (int): Byte address offset for Commanded Fuel Flow in Q16.16 format (0x08).
+        addr_fuel_flow_cmd (int): Byte address offset for Commanded Fuel Flow in Q16.16 format (0x08).
         addr_speed (int): Byte address offset for Rotational Speed telemetry in Q16.16 format (0x0C).
         addr_pressure (int): Byte address offset for Compressor Pressure telemetry in Q16.16 format (0x10).
         addr_temperature (int): Byte address offset for Exhaust Gas Temperature telemetry in Q16.16 format (0x14).
@@ -75,7 +75,7 @@ class ConfigEngineTester:
     # ------- Address Map Offsets. -------
     addr_control: int
     addr_status: int
-    fuel_flow_cmd: int
+    addr_fuel_flow_cmd: int
     addr_speed: int
     addr_pressure: int
     addr_temperature: int
@@ -275,13 +275,13 @@ class EngineTester:
         )
 
         await axil_master.write(
-            address = self._cfg.fuel_flow_cmd,
+            address = self._cfg.addr_fuel_flow_cmd,
             data = fuel_cmd_bytes    
         )
 
         # Reads it back to verify, that the register stored it.
         read_fuel_value_bytes = await axil_master.read(
-            address = self._cfg.fuel_flow_cmd,
+            address = self._cfg.addr_fuel_flow_cmd,
             length = 4
         )
         read_fuel_value_s16: int = int.from_bytes(
@@ -434,7 +434,7 @@ class EngineTester:
             )
 
             await axil_master.write(
-                address = self._cfg.fuel_flow_cmd,
+                address = self._cfg.addr_fuel_flow_cmd,
                 data = fuel_flow_bytes
             )
 
@@ -563,13 +563,13 @@ class EngineTester:
         )
 
         await axil_master.write(
-            address = self._cfg.fuel_flow_cmd,
+            address = self._cfg.addr_fuel_flow_cmd,
             data = fuel_cmd_bytes
         )
         
         # Reads it back to verify, that the register stored it.
         read_fuel_value_bytes = await axil_master.read(
-            address = self._cfg.fuel_flow_cmd,
+            address = self._cfg.addr_fuel_flow_cmd,
             length = 4
         )
         read_fuel_value_s16: int = int.from_bytes(
