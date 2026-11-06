@@ -21,6 +21,7 @@ from numpy import float64
 from numpy.typing import NDArray
 
 # ------- Customs. -------
+from scripts.config_loader import ConfigLoader, SystemConfig
 from scripts.generate_verilog_header_file import generate_verilog_header_file
 from scripts.locate_executables import locate_iverilog_executable, locate_verilator_executable
 from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
@@ -33,7 +34,6 @@ from sim_model.aircraft_engine_simulator_floating import (
     ConfigAircraftEngineSimulatorFloating,
 )
 from sim_model.graph_visualizer import ConfigGraphVisualizer, GraphVisualizer
-from sim_model.quantize_floats import quantize_floats
 from sim_model.verify_software import SoftwareVerifier
 from subprocess import CompletedProcess
 
@@ -71,48 +71,7 @@ if __name__ == "__main__":
 
     HARDCODED_VIVADO_PATH: Path = Path(r"D:\Programs\2025.2\Vivado\bin\vivado.bat")
 
-    # Declares only the constants, which are used in multiple places,
-    #   otherwise they are directly declared in the class initializtion.
-    INT_BIT_WIDTH: int = 16
-    FRACTIONAL_BIT_WIDTH: int = 16
-
-    SIMULATION_STEP: float = 1e-3
-    TOTAL_SIMULATION_TIME: float = 20.0 # [s].
-
-    AMBIENT_PRESSURE: float = 101.3 # [kPa].
-    AMBIENT_TEMPERATURE: float = 15.0
-
-    ROTOR_INERTIAL_TIME_CONST: float = 1.5
-    PRESSURE_VOLUME_TIME_CONST: float = 0.15
-    THERMAL_TIME_CONST: float = 0.8
-
-    SPEED_GAIN_COEFF: float = 1.0
-    COMPRESSOR_PRESSURE_GAIN: float = 1.5e-2
-    COMBUSTION_HEAT_GAIN: float = 15.0
-    MASS_OVERFLOW_COOLING_GAIN: float = 6.0
-
-    MAX_ROTATIONAL_SPEED: float = 110.0
-    MAX_COMPRESSOR_TEMPERATURE: float = 1100.0
-
-    # Quantized Values.
-    AMBIENT_PRESSURE_QUANTIZED: int = quantize_floats(AMBIENT_PRESSURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    AMBIENT_TEMPERATURE_QUANTIZED: int = quantize_floats(AMBIENT_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-
-    PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / ROTOR_INERTIAL_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / PRESSURE_VOLUME_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED: int = quantize_floats((SIMULATION_STEP / THERMAL_TIME_CONST), INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-
-    SPEED_GAIN_COEFF_QUANTIZED: int = quantize_floats(SPEED_GAIN_COEFF, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    COMPRESSOR_PRESSURE_GAIN_QUANTIZED: int = quantize_floats(COMPRESSOR_PRESSURE_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    COMBUSTION_HEAT_GAIN_QUANTIZED: int = quantize_floats(COMBUSTION_HEAT_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    MASS_OVERFLOW_COOLING_GAIN_QUANTIZED: int = quantize_floats(MASS_OVERFLOW_COOLING_GAIN, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-
-    MAX_ROTATIONAL_SPEED_QUANTIZED: int = quantize_floats(MAX_ROTATIONAL_SPEED, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-    MAX_COMPRESSOR_TEMPERATURE_QUANTIZED: int = quantize_floats(MAX_COMPRESSOR_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
-
-    # Hardware Simulation.
     TOP_MODULE: str = "aircraft_engine_simulator_top"
-
     VERILOG_SRC_FILE_PATHS: list[Path] = [
         RTL_DIR_PATH / "clock_prescaler.v",
         RTL_DIR_PATH / "calculate_target_values.v",
@@ -122,66 +81,87 @@ if __name__ == "__main__":
         RTL_DIR_PATH / f"{TOP_MODULE}.v"
     ]
 
-    SYNTH_TARGET_PERIOD: float = 11.000 # [ns].
-    SWEEP_LOW_PERIOD: float = 2.000 # [ns].
-    SWEEP_HIGH_PERIOD: float = 20.000 # [ns].
+    CONFIG_FILE_PATH: Path = MAIN_DIR_PATH / "config.toml"
+
+    # Creates a Central Single Source of Trurh (CSST).
+    config_loader = ConfigLoader()
+    cfg: SystemConfig = config_loader.load_config(config_file_path = CONFIG_FILE_PATH)
+
 
     # Exports a JSON File, which containts parameters for other files.
     config: dict[str, dict[str, Any]] = {
         "test_engine" : {
-            "addr_control": 0x00,
-            "addr_status": 0x04,
-            "addr_fuel_flow_command": 0x08,
-            "addr_speed": 0x0C,
-            "addr_pressure": 0x10,
-            "addr_temperature": 0x14,
-            "addr_fault_injection": 0x18,
+            "addr_control": cfg.register.addr_control,
+            "addr_status": cfg.register.addr_status,
+            "addr_fuel_flow_cmd": cfg.register.addr_fuel_flow_cmd,
+            "addr_speed": cfg.register.addr_speed,
+            "addr_pressure": cfg.register.addr_pressure,
+            "addr_temperature": cfg.register.addr_temperature,
+            "addr_fault_injection": cfg.register.addr_fault_injection,
 
             "software_results_file_path_str": str(SOFTWARE_RESULTS_FILE_PATH),
 
-            "simulation_step": SIMULATION_STEP,
-            "total_simulation_time": TOTAL_SIMULATION_TIME,
+            "simulation_step": cfg.simulation.simulation_step,
+            "total_simulation_time": cfg.simulation.total_simulation_time,
 
-            "fractional_bit_width": FRACTIONAL_BIT_WIDTH,
+            "fractional_bit_width": cfg.representation.fractional_bit_width,
 
-            "max_compressor_temperature": MAX_COMPRESSOR_TEMPERATURE,
+            "max_compressor_temperature": cfg.limit.max_compressor_temperature,
 
-            "smoke_test_duration": 5e-2,
-            "compressor_stall_test_duration": 5e-1,
-            "max_thermal_threshold_cross_duration": 3
+            "smoke_test_duration": cfg.testbench.smoke_test_duration,
+            "compressor_stall_test_duration": cfg.testbench.compressor_stall_test_duration,
+            "max_thermal_threshold_cross_duration": cfg.testbench.max_thermal_threshold_cross_duration
         }
     }
 
-    with open( 
-        file = f"{TB_DIR_PATH}/config.json",
-        mode = "w",
-        encoding = "utf-8"
-    ) as f:
-        json.dump(
-            config, 
-            f, 
-            indent = 4
+    target_config_path: Path = TB_DIR_PATH / "config.json"
+    try:
+        # Ensures the target directory exists.
+        target_config_path.parent.mkdir(
+            parents = True,
+            exist_ok = True
         )
+
+        with open(
+            file = target_config_path,
+            mode = "w",
+            encoding = "utf-8"
+        ) as f:
+            json.dump(
+                config,
+                f,
+                indent = 4
+            )
+    except TypeError as err:
+        # Traps non-serializable objects.
+        raise TypeError(
+            f"Failed to serialize testbench configurations into JSON format: {err}"
+        ) from err
+    except OSError as err:
+        # Traps disk full, read-only permissions or filesystem locks.
+        raise RuntimeError(
+            f"Failed to write testbench configuration to '{target_config_path}': {err}"
+        ) from err
 
     # Defines the parameters.
     ENGINE_MATH_PARAMETERS = {
-        "INTEGER_BIT_WIDTH": INT_BIT_WIDTH,
-        "FRACTIONAL_BIT_WIDTH": FRACTIONAL_BIT_WIDTH,
+        "INT_BIT_WIDTH": cfg.representation.int_bit_width,
+        "FRACTIONAL_BIT_WIDTH": cfg.representation.fractional_bit_width,
 
-        "AMBIENT_PRESSURE": AMBIENT_PRESSURE_QUANTIZED,
-        "AMBIENT_TEMPERATURE": AMBIENT_TEMPERATURE_QUANTIZED,
+        "AMBIENT_PRESSURE": cfg.ambient.ambient_pressure_quantized,
+        "AMBIENT_TEMPERATURE": cfg.ambient.ambient_temperature_quantized,
 
-        "SPEED_GAIN_COEFF": SPEED_GAIN_COEFF_QUANTIZED,
-        "COMPRESSOR_PRESSURE_GAIN": COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
-        "COMBUSTION_HEAT_GAIN": COMBUSTION_HEAT_GAIN_QUANTIZED,
-        "MASS_OVERFLOW_COOLING_GAIN": MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
+        "SPEED_GAIN_COEFF": cfg.gain.speed_gain_coeff_quantized,
+        "COMPRESSOR_PRESSURE_GAIN": cfg.gain.compressor_pressure_gain_quantized,
+        "COMBUSTION_HEAT_GAIN": cfg.gain.combustion_heat_gain_quantized,
+        "MASS_OVERFLOW_COOLING_GAIN": cfg.gain.mass_overflow_cooling_gain_quantized,
 
-        "PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST": PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
-        "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
-        "PRE_CALCULATED_THERMAL_TIME_CONST": PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
+        "PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST": cfg.inertia.pre_calculated_rotor_inertial_time_const_quantized,
+        "PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST": cfg.inertia.pre_calculated_pressure_volume_time_const_quantized,
+        "PRE_CALCULATED_THERMAL_TIME_CONST": cfg.inertia.pre_calculated_thermal_time_const_quantized,
 
-        "MAX_ROTATIONAL_SPEED": MAX_ROTATIONAL_SPEED_QUANTIZED,
-        "MAX_COMPRESSOR_TEMPERATURE": MAX_COMPRESSOR_TEMPERATURE_QUANTIZED,
+        "MAX_ROTATIONAL_SPEED": cfg.limit.max_rotational_speed_quantized,
+        "MAX_COMPRESSOR_TEMPERATURE": cfg.limit.max_compressor_temperature_quantized
     }
 
     COCOTB_PARAMETERS = {
@@ -223,10 +203,10 @@ if __name__ == "__main__":
     synthesizer_group.add_argument(
         "--synth",
         nargs = "?",
-        const = SYNTH_TARGET_PERIOD,
+        const = cfg.synthesis.synth_target_period,
         type = float,
         default = None,
-        help = "Run single Out-of-Context synthesis. Optional target period in [ns] (default: 3.250)."
+        help = f"Run single Out-of-Context synthesis. Optional target period in [ns] (default: {cfg.synthesis.synth_target_period})."
     )
     
     # Sweeps target periods in an interval to discover maximum frequency (F_max).
@@ -247,7 +227,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--lint",
         action = "store_true",
-        help = "Run Ruff and Verible linting checks."
+        help = "Run Ruff, Veribe and Verilator linting checks."
     )
     
     # Parses the command-line arguments.
@@ -347,23 +327,23 @@ if __name__ == "__main__":
     # ------- Custom Classes. -------
     # Aircraft Engine (Floating Type).
     config_aircraft_engine_simulator_floating = ConfigAircraftEngineSimulatorFloating(
-        simulation_step = SIMULATION_STEP,
-        total_simulation_time = TOTAL_SIMULATION_TIME,
+        simulation_step = cfg.simulation.simulation_step,
+        total_simulation_time = cfg.simulation.total_simulation_time,
 
-        ambient_pressure = AMBIENT_PRESSURE,
-        ambient_temperature = AMBIENT_TEMPERATURE,
+        ambient_pressure = cfg.ambient.ambient_pressure,
+        ambient_temperature = cfg.ambient.ambient_temperature,
 
-        rotor_inertial_time_const = ROTOR_INERTIAL_TIME_CONST,
-        pressure_volume_time_const = PRESSURE_VOLUME_TIME_CONST,
-        thermal_time_const = THERMAL_TIME_CONST,
+        rotor_inertial_time_const = cfg.inertia.rotor_inertial_time_const,
+        pressure_volume_time_const = cfg.inertia.pressure_volume_time_const,
+        thermal_time_const = cfg.inertia.thermal_time_const,
 
-        speed_gain_coeff = SPEED_GAIN_COEFF,
-        compressor_pressure_gain = COMPRESSOR_PRESSURE_GAIN,
-        combustion_heat_gain = COMBUSTION_HEAT_GAIN,
-        mass_overflow_cooling_gain = MASS_OVERFLOW_COOLING_GAIN,
+        speed_gain_coeff = cfg.gain.speed_gain_coeff,
+        compressor_pressure_gain = cfg.gain.compressor_pressure_gain,
+        combustion_heat_gain = cfg.gain.combustion_heat_gain,
+        mass_overflow_cooling_gain = cfg.gain.mass_overflow_cooling_gain,
 
-        max_rotational_speed = MAX_ROTATIONAL_SPEED,
-        max_compressor_temperature = MAX_COMPRESSOR_TEMPERATURE
+        max_rotational_speed = cfg.limit.max_rotational_speed,
+        max_compressor_temperature = cfg.limit.max_compressor_temperature
     )
 
     aircraft_engine_simulator_floating = AircraftEngineSimulatorFloating(
@@ -373,26 +353,26 @@ if __name__ == "__main__":
     # Aircraft Engine (Fixed Point Type).
     #   Quantizes all the attributes from the floating type to the fixed point type.
     config_aircraft_engine_simulator_fixed_point = ConfigAircraftEngineSimulatorFixedPoint(
-        int_bit_width = INT_BIT_WIDTH,
-        fractional_bit_width = FRACTIONAL_BIT_WIDTH,
+        int_bit_width = cfg.representation.int_bit_width,
+        fractional_bit_width = cfg.representation.fractional_bit_width,
 
-        simulation_step = SIMULATION_STEP,
-        total_simulation_time = TOTAL_SIMULATION_TIME,
+        simulation_step = cfg.simulation.simulation_step,
+        total_simulation_time = cfg.simulation.total_simulation_time,
     
-        ambient_pressure_quantized = AMBIENT_PRESSURE_QUANTIZED,
-        ambient_temperature_quantized = AMBIENT_TEMPERATURE_QUANTIZED,
+        ambient_pressure_quantized =  cfg.ambient.ambient_pressure_quantized,
+        ambient_temperature_quantized =  cfg.ambient.ambient_temperature_quantized,
     
-        pre_calculated_rotor_inertial_time_const_quantized = PRE_CALCULATED_ROTOR_INERTIAL_TIME_CONST_QUANTIZED,
-        pre_calculated_pressure_volume_time_const_quantized = PRE_CALCULATED_PRESSURE_VOLUME_TIME_CONST_QUANTIZED,
-        pre_calculated_thermal_time_const_quantized = PRE_CALCULATED_THERMAL_TIME_CONST_QUANTIZED,
+        pre_calculated_rotor_inertial_time_const_quantized = cfg.inertia.pre_calculated_rotor_inertial_time_const_quantized,
+        pre_calculated_pressure_volume_time_const_quantized = cfg.inertia.pre_calculated_pressure_volume_time_const_quantized,
+        pre_calculated_thermal_time_const_quantized = cfg.inertia.pre_calculated_thermal_time_const_quantized,
     
-        speed_gain_coeff_quantized = SPEED_GAIN_COEFF_QUANTIZED,
-        compressor_pressure_gain_quantized = COMPRESSOR_PRESSURE_GAIN_QUANTIZED,
-        combustion_heat_gain_quantized = COMBUSTION_HEAT_GAIN_QUANTIZED,
-        mass_overflow_cooling_gain_quantized = MASS_OVERFLOW_COOLING_GAIN_QUANTIZED,
+        speed_gain_coeff_quantized = cfg.gain.speed_gain_coeff_quantized,
+        compressor_pressure_gain_quantized = cfg.gain.compressor_pressure_gain_quantized,
+        combustion_heat_gain_quantized = cfg.gain.combustion_heat_gain_quantized,
+        mass_overflow_cooling_gain_quantized = cfg.gain.mass_overflow_cooling_gain_quantized,
     
-        max_rotational_speed_quantized = MAX_ROTATIONAL_SPEED_QUANTIZED,
-        max_compressor_temperature_quantized = MAX_COMPRESSOR_TEMPERATURE_QUANTIZED,
+        max_rotational_speed_quantized = cfg.limit.max_rotational_speed_quantized,
+        max_compressor_temperature_quantized = cfg.limit.max_compressor_temperature_quantized,
 
         software_results_file_path = SOFTWARE_RESULTS_FILE_PATH
     )
@@ -460,7 +440,7 @@ if __name__ == "__main__":
         temperature_grid_alpha = 0.6,
 
         # ------- Marker Conditions. -------
-        max_speed = MAX_ROTATIONAL_SPEED,
+        max_speed = cfg.limit.max_rotational_speed,
 
         engine_failure_line_color = "darkred",
         engine_failure_line_linestyle = ":",
@@ -491,20 +471,20 @@ if __name__ == "__main__":
     # ------- Workflow. -------
     # Runs the aircraft engine simulation both floating and fixed point.
     fuel_flow_history_floating, speed_history_floating, pressure_history_floating, temperature_history_floating, time_history = aircraft_engine_simulator_floating.run_simulation(
-        initial_conditions = (0.0, AMBIENT_PRESSURE, AMBIENT_TEMPERATURE)
+        initial_conditions = (0.0, cfg.ambient.ambient_pressure,  cfg.ambient.ambient_temperature)
     )
 
     #: time_history stays stable independent from the representation, so it doesnt need to be returned from floating simulation as well.
     fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point, is_engine_broken_history, _ = aircraft_engine_simulator_fixed_point.run_simulation(
         initial_conditions = (
             0, 
-            quantize_floats(AMBIENT_PRESSURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True), 
-            quantize_floats(AMBIENT_TEMPERATURE, INT_BIT_WIDTH, FRACTIONAL_BIT_WIDTH, True)
+            cfg.ambient.ambient_pressure_quantized, 
+            cfg.ambient.ambient_temperature_quantized
         )
     )
 
     # Scales the integer values from fixed point representation back to the normal range.
-    fixed_point_scale_factor: int = 2 ** FRACTIONAL_BIT_WIDTH
+    fixed_point_scale_factor: int = 2 ** cfg.representation.fractional_bit_width
     
     fuel_flow_history_fixed_point_scaled: NDArray[float64] = fuel_flow_history_fixed_point / fixed_point_scale_factor
     speed_history_fixed_point_scaled: NDArray[float64] = speed_history_fixed_point / fixed_point_scale_factor
@@ -592,8 +572,8 @@ if __name__ == "__main__":
             adjusted_low_period_ns: float = float(min(args.sweep))
             adjusted_high_period_ns: float = float(max(args.sweep))
         elif len(args.sweep) == 0:
-            adjusted_low_period_ns = SWEEP_LOW_PERIOD
-            adjusted_high_period_ns = SWEEP_HIGH_PERIOD
+            adjusted_low_period_ns = cfg.synthesis.sweep_low_period
+            adjusted_high_period_ns = cfg.synthesis.sweep_high_period
         else:
             parser.error(
                 message = "--sweep accepts either 0 arguments (using defaults)" \

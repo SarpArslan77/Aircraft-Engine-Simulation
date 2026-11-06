@@ -7,7 +7,7 @@
 module calculate_next_steps #(
     // ------- Parameters. -------
     // Data Representation.
-    parameter INTEGER_BIT_WIDTH = 16,
+    parameter INT_BIT_WIDTH = 16,
     parameter FRACTIONAL_BIT_WIDTH = 16,
 
     // Ambient Conditions.
@@ -16,22 +16,22 @@ module calculate_next_steps #(
 )(
     // ------- Inputs. -------
     // Currents.
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_rotational_speed,
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_compressor_pressure,
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_exhaust_gas_temperature,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_rotational_speed,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_compressor_pressure,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] current_exhaust_gas_temperature,
 
     // Derivatives.
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_rotational_speed,
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_compressor_pressure,
-    input wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_exhaust_gas_temperature,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_rotational_speed,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_compressor_pressure,
+    input wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] d_exhaust_gas_temperature,
 
     // ------- Outputs. -------
-    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_rotational_speed,
-    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_compressor_pressure,
-    output wire signed [(INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_exhaust_gas_temperature
+    output wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_rotational_speed,
+    output wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_compressor_pressure,
+    output wire signed [(INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH)-1:0] next_exhaust_gas_temperature
 );
     // ------- Local Parameters. -------
-    localparam TOTAL_BIT_WIDTH = INTEGER_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
+    localparam TOTAL_BIT_WIDTH = INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
 
     // Maximum Possible Numbers.
     localparam MAX_ROTATIONAL_SPEED = (32'd1 << (TOTAL_BIT_WIDTH-1)) - 1;

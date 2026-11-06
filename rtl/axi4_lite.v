@@ -101,7 +101,7 @@ module axi4_lite #(
     output wire start_engine,
     output wire restart_engine,
 
-    output wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_command,
+    output wire signed [TOTAL_BIT_WIDTH-1:0] fuel_flow_cmd,
 
     output wire fault_compressor_stall,
     output wire fault_sensor_corruption
@@ -118,7 +118,7 @@ module axi4_lite #(
 
     // ------- Registers. -------
     reg [TOTAL_BIT_WIDTH-1:0] control_reg;
-    reg [TOTAL_BIT_WIDTH-1:0] fuel_flow_command_reg;
+    reg [TOTAL_BIT_WIDTH-1:0] fuel_flow_cmd_reg;
     reg [TOTAL_BIT_WIDTH-1:0] fault_injection_reg;
 
     // ------- Wires. -------
@@ -129,7 +129,7 @@ module axi4_lite #(
     assign start_engine = control_reg[0]; // Starts the engine.
     assign restart_engine = control_reg[1]; // Restarts the engine.
 
-    assign fuel_flow_command = fuel_flow_command_reg;
+    assign fuel_flow_cmd = fuel_flow_cmd_reg;
 
     assign fault_compressor_stall = fault_injection_reg[0]; // Compressor stall disrupts the airflow.
     assign fault_sensor_corruption = fault_injection_reg[1]; // Garbage data tests the detection of a sensor failure.
@@ -147,7 +147,7 @@ module axi4_lite #(
             s_axi_bresp <= 2'b00;
 
             control_reg <= 0;
-            fuel_flow_command_reg <= 0;
+            fuel_flow_cmd_reg <= 0;
             fault_injection_reg <= 0;
         end
         else begin
@@ -169,7 +169,7 @@ module axi4_lite #(
 
                         ADDR_FUEL_FLOW_COMMAND: begin
                             for(i = 0; i < 4; i = i + 1) begin
-                                if (s_axi_wstrb[i]) fuel_flow_command_reg[(i*8) +: 8] <= s_axi_wdata[(i*8) +: 8];
+                                if (s_axi_wstrb[i]) fuel_flow_cmd_reg[(i*8) +: 8] <= s_axi_wdata[(i*8) +: 8];
                             end
                         end
 
@@ -223,7 +223,7 @@ module axi4_lite #(
 
                         ADDR_STATUS: s_axi_rdata <= { { (TOTAL_BIT_WIDTH-1){1'b0} }, is_engine_broken };
 
-                        ADDR_FUEL_FLOW_COMMAND: s_axi_rdata <= fuel_flow_command_reg;
+                        ADDR_FUEL_FLOW_COMMAND: s_axi_rdata <= fuel_flow_cmd_reg;
 
                         ADDR_SPEED: s_axi_rdata <= fault_sensor_corruption ? 32'hDEAD_BEEF : current_speed;
 
