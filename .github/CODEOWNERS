@@ -1,0 +1,30 @@
+
+#* .github/CODEOWNERS
+
+# Defines code ownership and automatic reviewer assignment per subsystem.
+#? Syntax: path/ @owner_username
+
+# ------- Global Fallback Owner. -------
+#? GitHub evaluates rules from top to bottom, so the last matching pattern takes order. That's
+#   why this fallback is at the very top, followed by subsystem directories.
+* @SarpArslan77
+
+# ------- Synthesizable Hardware & RTL Core. -------
+/rtl/ @SarpArslan77
+/.rules.verible_lint @SarpArslan77
+
+# ------- Reference Models & Python Verification. -------
+/sim_model/ @SarpArslan77
+
+/tb/ @SarpArslan77
+
+# ------- Synthesis Automation, Toolchain & CI/CD Pipelines. -------
+/scripts/ @SarpArslan77
+/build_synth/ @SarpArslan77
+
+/.github/ @SarpArslan77
+
+/config.toml @SarpArslan77
+/Makefile @SarpArslan77
+/pyproject.toml @SarpArslan77
+/.ruff.toml @SarpArslan77
