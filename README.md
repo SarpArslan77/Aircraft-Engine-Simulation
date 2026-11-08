@@ -4,6 +4,7 @@
 ![Ruff Status](https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/workflows/ruff.yml/badge.svg)
 ![Verible Status](https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/workflows/verible.yml/badge.svg)
 ![Verilator Status](https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/workflows/verilator.yml/badge.svg)
+![Mypy Status](https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/workflows/mypy.yml/badge.svg)
 
 This project implements a synthesizable, real-time mathematical model of a single-spool turbojet engine designed for **Hardware-in-the-Loop (HIL) emulation** (*Echtzeitsimulation*) on an FPGA. By solving thermodynamic and mechanical differential equations directly in hardware at discrete time steps ($dt = 1\text{ ms}$), the simulator acts as an exact digital twin to verify Engine Control Units (ECUs) without physical engine test cells.
 
