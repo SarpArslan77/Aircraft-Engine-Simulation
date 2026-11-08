@@ -609,6 +609,9 @@ if __name__ == "__main__":
         test_dir = TB_DIR_PATH
     )
 
+    # Defines typehint.
+    vivado_path: Path
+
     # ------- Synthesis. -------
     # -> 'python main.py --sweep'.
     # -> 'python main.py --sweep 2.0 10.0'.
@@ -637,7 +640,7 @@ if __name__ == "__main__":
             test_period_ns: float = round(((adjusted_high_period_ns + adjusted_low_period_ns) / 2), 3)
 
             # Finds the vivado path.
-            vivado_path: Path = executable_locater.locate_vivado_executable()
+            vivado_path = executable_locater.locate_vivado_executable()
 
             wns: float = synthesis_runner.run_synthesis(
                 target_period_ns = test_period_ns,
@@ -671,7 +674,7 @@ if __name__ == "__main__":
         print(f"Running single Out-of-Context synthesis at target period: {target_period} ns...")
 
         # Finds the vivado path.
-        vivado_path: Path = executable_locater.locate_vivado_executable()
+        vivado_path = executable_locater.locate_vivado_executable()
 
         synth_wns = synthesis_runner.run_synthesis(
             target_period_ns = target_period,
