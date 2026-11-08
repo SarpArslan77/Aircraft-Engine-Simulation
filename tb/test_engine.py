@@ -4,8 +4,9 @@
 #* ======= Libraries =======
 # ------- Native. -------
 import json
-from dataclasses import dataclass
 import logging
+
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,9 +22,6 @@ import pandas as pd
 #   - period: Total duration of one full clock cycle.
 #   - units: Physical unit of time for the period.
 from cocotb.clock import Clock
-#? SimHandleBase: Abstract class, represents any object, hierarchy node, wire,
-#   reg or port inside the simulatrors netlist.
-from cocotb.handle import SimHandleBase
 #? RisingEdge: Trigger, pauses the Python coroutine until the signal pulses high.
 #   - signal: Wire, register or pin object, that gets monitored.
 #? ClockCycles: Trigger, pauses the the coroutine until the signal has pulsed.
@@ -43,7 +41,6 @@ from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 from numpy import int64
 from numpy.typing import NDArray
 from pandas import DataFrame
-
 
 #* ======= Aircraft Engine Tester's Config Dataclass =======
 @dataclass(frozen = True)
@@ -125,7 +122,7 @@ class EngineTester:
     #? async: Defines a coroutine function.
     async def _perform_synchronous_reset(
             self,
-            dut: SimHandleBase,
+            dut: Any,
             axil_master: AxiLiteMaster
     ) -> None:
         """
@@ -135,7 +132,7 @@ class EngineTester:
         and reads the status register via AXI4-Lite to confirm normal operational readiness.
 
         Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            dut (Any): Handle to the top-level Device Under Test (DUT).
             axil_master (AxiLiteMaster): Cocotb AXI4-Lite master bus controller instance.
 
         Raises:
@@ -177,7 +174,7 @@ class EngineTester:
     async def _start_engine(
             self,
             axil_master: AxiLiteMaster,
-            dut: SimHandleBase
+            dut: Any
     ) -> None:
         """
         Commands engine ignition over AXI4-Lite and synchronizes to the next integration domain clock.
@@ -187,7 +184,7 @@ class EngineTester:
 
         Args:
             axil_master (AxiLiteMaster): Cocotb AXI4-Lite master bus controller instance.
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            dut (Any): Handle to the top-level Device Under Test (DUT).
 
         Returns:
             None
@@ -212,7 +209,7 @@ class EngineTester:
     # ------- The Smoke Test. -------
     async def run_smoke_test(
             self,
-            dut: SimHandleBase
+            dut: Any
     ) -> None:
         """
         Executes an end-to-end basic functional sanity and smoke test sequence on the RTL engine.
@@ -226,7 +223,7 @@ class EngineTester:
         6. Reads and logs scaled real-time telemetry (Speed, Pressure, Temperature).
 
         Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            dut (Any): Handle to the top-level Device Under Test (DUT).
 
         Raises:
             AssertionError: If reset status is non-zero or the fuel flow register fails loopback.
@@ -234,12 +231,8 @@ class EngineTester:
         Returns:
             None
         """
-        #? cocotb.start_soon(): Task scheduler, launches an asynchronous coroutine
-        #   in the background (concurenntly).
         # Starts a 100 MhZ clock (10 ns period).
-        cocotb.start_soon(
-            Clock(dut.s_axi_aclk, 10, "ns").start()
-        )
+        Clock(dut.s_axi_aclk, 10, "ns").start()
 
         # Declares the AXI4-Lite module.
         axil_bus = AxiLiteBus.from_prefix(
@@ -354,7 +347,7 @@ class EngineTester:
     # ------- Golden Reference Verification Test. -------
     async def run_golden_reference_verification_test(
             self,
-            dut: SimHandleBase
+            dut: Any
     ) -> None:
         """
         Executes a bit-for-bit cycle-accurate verification test against the software reference model.
@@ -369,7 +362,7 @@ class EngineTester:
         - Asserts that hardware outputs match golden reference values within quantization tolerance.
 
         Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            dut (Any): Handle to the top-level Device Under Test (DUT).
 
         Raises:
             AssertionError: If any hardware telemetry state diverges by 2 or more LSBs from the
@@ -379,9 +372,7 @@ class EngineTester:
             None
         """
         # Starts a 100 MhZ clock.
-        cocotb.start_soon(
-            Clock(dut.s_axi_aclk, 10, "ns").start()
-        )
+        Clock(dut.s_axi_aclk, 10, "ns").start()
 
         # Declares the AXI4-Lite module.
         axil_bus = AxiLiteBus.from_prefix(
@@ -415,11 +406,35 @@ class EngineTester:
         # Loads the golden reference dataset.
         software_results_df: DataFrame = pd.read_csv(self._cfg.software_results_file_path_str)
 
-        fuel_flow_col: NDArray[int64] = software_results_df["fuel_flow"].values
-        speed_col: NDArray[int64]  = software_results_df["speed"].values
-        pressure_col: NDArray[int64]  = software_results_df["pressure"].values
-        temperature_col: NDArray[int64] = software_results_df["temperature"].values
-        is_engine_broken_col: NDArray[int64]  = software_results_df["is_engine_broken"].values
+        fuel_flow_arr: NDArray[int64] = software_results_df["fuel_flow"].to_numpy()
+        fuel_flow_col: NDArray[int64] = np.asarray(
+            fuel_flow_arr,
+            dtype = int64
+        )
+
+        speed_arr: NDArray[int64] = software_results_df["speed"].to_numpy()
+        speed_col: NDArray[int64] = np.asarray(
+            speed_arr,
+            dtype = int64
+        )
+
+        pressure_arr: NDArray[int64] = software_results_df["pressure"].to_numpy()
+        pressure_col: NDArray[int64] = np.asarray(
+            pressure_arr,
+            dtype = int64
+        )
+
+        temperature_arr: NDArray[int64] = software_results_df["temperature"].to_numpy()
+        temperature_col: NDArray[int64] = np.asarray(
+            temperature_arr,
+            dtype = int64
+        )
+
+        is_engine_broken_arr: NDArray[int64] = software_results_df["is_engine_broken"].to_numpy()
+        is_engine_broken_col: NDArray[int64] = np.asarray(
+            is_engine_broken_arr,
+            dtype = int64
+        )
 
         total_steps = int(
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
@@ -497,7 +512,7 @@ class EngineTester:
 
     async def run_compressor_stall_test(
             self,
-            dut: SimHandleBase
+            dut: Any
     ) -> None:
         """
         Executes a safety-critical fault injection test simulating a turbine compressor stall.
@@ -510,7 +525,7 @@ class EngineTester:
         5. Reads the status register and verifies the supervisory FSM entered the EMERGENCY trip state.
 
         Args:
-            dut (SimHandleBase): Handle to the top-level Device Under Test (DUT).
+            dut (Any): Handle to the top-level Device Under Test (DUT).
 
         Raises:
             AssertionError: If register loopback fails or the status register fails to flag broken state.
@@ -521,9 +536,7 @@ class EngineTester:
             None
         """
         # Starts a 100 MhZ clock.
-        cocotb.start_soon(
-            Clock(dut.s_axi_aclk, 10, "ns").start()
-        )
+        Clock(dut.s_axi_aclk, 10, "ns").start()
 
         # Declares the AXI4-Lite module.
         axil_bus = AxiLiteBus.from_prefix(
@@ -694,7 +707,7 @@ def load_config() -> dict[str, Any]:
 #? @cocotb.test(): Function decorator, registers an 'async def' function
 #   as an official executable test case in the verification suite.
 @cocotb.test()
-async def test_engine_smoke(dut: SimHandleBase) -> None:
+async def test_engine_smoke(dut: Any) -> None:
     """
     Cocotb entry point test case verifying RTL engine synthesis sanity and bus connectivity.
 
@@ -702,7 +715,7 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     the basic operational smoke test sequence through the Cocotb task scheduler.
 
     Args:
-        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+        dut (Any): Handle to the top-level synthesizable Verilog module
             ('aircraft_engine_simulator_top') injected by Cocotb.
 
     Returns:
@@ -714,7 +727,7 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     # Extracts the current files parameters from the JSON file.
     #? .stem: Retrieves the active file names, without the extension.
     active_file_name: str = Path(__file__).stem
-    active_file_config: dict = config[active_file_name]
+    active_file_config: dict[str, Any] = config[active_file_name]
     
     config_engine_tester = ConfigEngineTester(**active_file_config)
 
@@ -723,7 +736,7 @@ async def test_engine_smoke(dut: SimHandleBase) -> None:
     await tester.run_smoke_test(dut = dut)
 
 @cocotb.test()
-async def test_engine_golden_reference(dut: SimHandleBase) -> None:
+async def test_engine_golden_reference(dut: Any) -> None:
     """
     Cocotb entry point test case verifying hardware telemetry against golden software traces.
 
@@ -731,7 +744,7 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     Verilog Euler integrator reproduces the Python fixed-point model within strict bit tolerances.
 
     Args:
-        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+        dut (Any): Handle to the top-level synthesizable Verilog module
             ('aircraft_engine_simulator_top') injected by Cocotb.
 
     Returns:
@@ -742,7 +755,7 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     
     # Extracts the current file's parameters from the JSON file.
     active_file_name: str = Path(__file__).stem
-    active_file_config: dict = config[active_file_name]
+    active_file_config: dict[str, Any] = config[active_file_name]
     
     config_engine_tester = ConfigEngineTester(**active_file_config)
     
@@ -751,7 +764,7 @@ async def test_engine_golden_reference(dut: SimHandleBase) -> None:
     await tester.run_golden_reference_verification_test(dut = dut)
 
 @cocotb.test()
-async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
+async def test_engine_compressor_stall_test(dut: Any) -> None:
     """
     Cocotb entry point test case verifying safety shutdown logic under fault injection.
 
@@ -759,7 +772,7 @@ async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
     and verifies thermal runaway detection and automatic emergency fuel cut-off FSM tripping.
 
     Args:
-        dut (SimHandleBase): Handle to the top-level synthesizable Verilog module
+        dut (Any): Handle to the top-level synthesizable Verilog module
             ('aircraft_engine_simulator_top') injected by Cocotb.
 
     Returns:
@@ -770,7 +783,7 @@ async def test_engine_compressor_stall_test(dut: SimHandleBase) -> None:
 
     # Extracts the current file's parameters from the JSON file.
     active_file_name: str = Path(__file__).stem
-    active_file_config: dict = config[active_file_name]
+    active_file_config: dict[str, Any] = config[active_file_name]
 
     config_engine_tester = ConfigEngineTester(**active_file_config)
 
