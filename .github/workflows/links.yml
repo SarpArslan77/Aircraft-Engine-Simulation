@@ -1,0 +1,64 @@
+
+#* .github/workflows/links.yml
+
+# Link checker workflow powered by 'lychee' (Rust-based fast URL verifier).
+# -> Scans all Markdown files for dead hyperlinks, 404s and broken relative paths.
+# -> Runs on push / PR when documentation changes and a weekly cron audit.
+
+name: Markdown Links Audit
+
+on:
+  push: 
+    branches: [main]
+    #? paths: Path filterin optimization, runs only if at least one 
+    #   Markdown '.md' file was modified.
+    paths:
+      - "**.md"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.md"
+  #? schedule: Runs the workflow automatically on a timer without any commits.
+  #? cron: "0 0 * * 0": (Minute, Hour, Day of Month, Month, Day of Week) & (*: Any).
+  schedule:
+    # Runs every Sunday at 00:00 to catch external link rot.
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  link-checker:
+    name: Verify Markdown Links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Lychee Link Checker
+        uses: lycheeverse/lychee-action@v2
+        #? >-: Allows to format each flag on its own line while passing them
+        #   as a single command-line string.
+        #? --verbose: Tells to log every single URL it inspects along with
+        #   its HTTP status code in the action console.
+        #? --exlude-mail: Tells to skip email addresses.
+        #? --exclude (f.e. "build_synth/."): Tells to ignore links pointing to this.
+        #? --exclude "http://localhost.": Prevents failures if any documents
+        #   or comments reference local web servers.
+        #? --exclude "https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/.**":
+        #   Avoids transient false-negative badge failures, when a new branch is created.
+        #? './**/*.md': Target file glob pattern.
+        #? fail: true -> If any broken link was found, fails the GitHub Action.
+        with:
+          args: >-
+            --verbose
+            --exclude-mail
+            --exclude "build_synth/."
+            --exclude "http://localhost."
+            --exclude "https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/.**"
+            './**/*.md'
+          fail: true
+    
