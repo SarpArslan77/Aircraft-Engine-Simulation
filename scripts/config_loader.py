@@ -273,7 +273,7 @@ class ConfigLoader:
                 config_file_path,
                 mode = "rb"
             ) as file:
-                cfg: dict = tomllib.load(file)
+                cfg: dict[str, Any] = tomllib.load(file)
         except tomllib.TOMLDecodeError as err:
             print(f"Failed to parse config.toml syntax: {err}")
             raise
