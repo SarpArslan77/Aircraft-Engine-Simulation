@@ -54,11 +54,12 @@
 #* ======= Libraries =======
 # ------- Natives. -------
 from dataclasses import dataclass
-from decimal import Decimal, DecimalTuple
+from decimal import Decimal
 from pathlib import Path
 
 # ------- Externals. -------
 import numpy as np
+
 from numpy import float64, int64
 from numpy.typing import NDArray
 from pandas import DataFrame
@@ -102,7 +103,7 @@ class ConfigAircraftEngineSimulatorFixedPoint:
 
     # ------- Simulation. -------
     simulation_step: float
-    total_simulation_time: int
+    total_simulation_time: float
 
     # ------- Ambient Conditions. -------
     ambient_pressure_quantized: int
@@ -128,7 +129,14 @@ class ConfigAircraftEngineSimulatorFixedPoint:
 
 #* ======= Aircraft Engine Simulator =======
 quantized_values_type = tuple[int, int, int]
-histories_type = tuple[NDArray[int64], NDArray, NDArray[int64], NDArray[int64], NDArray[int64], NDArray[int64]]
+histories_type = tuple[
+    NDArray[int64], 
+    NDArray[int64], 
+    NDArray[int64], 
+    NDArray[int64], 
+    NDArray[int64], 
+    NDArray[float64]
+]
 
 class AircraftEngineSimulatorFixedPoint:
     """
@@ -179,16 +187,17 @@ class AircraftEngineSimulatorFixedPoint:
         Returns:
             int: Quantized commanded fuel flow rate (W_f) in raw fixed-point LSBs.
         """
-
+        fuel_flow_float: float
+        
         # Idle fuel flow.
         if k < 2.0:
-            fuel_flow_float: int = 10
+            fuel_flow_float = 10.0
         # Throttle slam / rapic acceleration.
         elif k < 18.0:
-            fuel_flow_float: int = 90
+            fuel_flow_float = 90.0
         # Throttle chop / deceleration.
         else:
-            fuel_flow_float: int = 10
+            fuel_flow_float = 10.0
 
         # Quantizes the fuel flow.
         return quantize_floats(
@@ -347,14 +356,14 @@ class AircraftEngineSimulatorFixedPoint:
                 - speed_history (NDArray[int64]): Rotational speed history [LSBs].
                 - pressure_history (NDArray[int64]): Compressor pressure history [LSBs].
                 - temperature_history (NDArray[int64]): Exhaust gas temperature history [LSBs].
-                - is_engine_broken_history (NDArray[int64]): Emergency trip flags (1 = tripped, 0 = operational).
+                - engine_status_history (NDArray[int64]): Emergency trip flags (1 = tripped, 0 = operational).
                 - time_history (NDArray[float64]): Physical simulation time points in seconds.
 
         Returns:
             None
         """
         # Unpacks the histories.
-        fuel_flow_history, speed_history, pressure_history, temperature_history, is_engine_broken_history, time_history = histories
+        fuel_flow_history, speed_history, pressure_history, temperature_history, engine_status_history, time_history = histories
 
         # Declares a pandas dataframe.
         df = DataFrame(
@@ -363,7 +372,7 @@ class AircraftEngineSimulatorFixedPoint:
                 "speed": speed_history,
                 "pressure": pressure_history,
                 "temperature": temperature_history,
-                "is_engine_broken": is_engine_broken_history,
+                "is_engine_broken": engine_status_history,
                 "time": time_history
             }
         )
@@ -372,6 +381,79 @@ class AircraftEngineSimulatorFixedPoint:
         df.to_csv(
             self._cfg.software_results_file_path,
             index = False
+        )
+
+    def _create_time_history(
+            self,
+            total_steps: int
+    ) -> NDArray[float64]:
+        #TODO AD
+        # Calculates to how many digits the time history should be rounded to.
+        simulation_step_str = str(self._cfg.simulation_step)
+        #? Decimal(): Class for exact base-10 arithmetic, rather than base-2 binary math.
+        simulation_step_decimal = Decimal(value = simulation_step_str)
+        #? .as_tuple(): Decomposes a Decimal object to its mathematical parts.
+        #   f.e. '0.001' -> DecimalTuple(sign = 0, digits = (1,), exponent = -3)
+        raw_exponent: int | str = simulation_step_decimal.as_tuple().exponent #TODO AC
+        #?  .exponent: Extracts just the exponent integer of a DecimalTuple.
+        simulation_step_decimal_exponent: int = raw_exponent if isinstance(raw_exponent, int) else 0 #TODO AC
+        
+        time_history_rounding_decimals: int = max(0, -simulation_step_decimal_exponent)
+
+        # Populates the time history as it is deterministic.
+        time_history: NDArray[float64] = np.linspace(
+            start = 0.0,
+            stop = self._cfg.total_simulation_time,
+            num = total_steps + 1,
+            dtype = float64
+        ).round(decimals = time_history_rounding_decimals)
+
+        return time_history
+
+    def _initialize_histories(
+            self,
+            total_steps: int,
+            initial_conditions: tuple[int, int, int]
+    ) -> tuple[NDArray[int64], NDArray[int64], NDArray[int64], NDArray[int64], NDArray[int64]]:
+        #TODO AD
+        # Unpacks the initial conditions.
+        initial_speed, initial_pressure, initial_temperature = initial_conditions
+
+        # Creates empty histories.
+        fuel_flow_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
+        
+        speed_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
+        speed_history[0]= initial_speed
+        
+        pressure_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
+        pressure_history[0]= initial_pressure
+        
+        temperature_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
+        temperature_history[0]= initial_temperature
+        
+        engine_status_history: NDArray[int64] = np.empty(
+            total_steps + 1,
+            int64
+        )
+
+        return (
+            fuel_flow_history, 
+            speed_history, 
+            pressure_history, 
+            temperature_history, 
+            engine_status_history
         )
 
     def run_simulation(
@@ -403,68 +485,26 @@ class AircraftEngineSimulatorFixedPoint:
                 - speed_history (NDArray[int64]): Quantized rotational speed history [LSBs].
                 - pressure_history (NDArray[int64]): Quantized compressor pressure history [LSBs].
                 - temperature_history (NDArray[int64]): Quantized exhaust gas temperature history [LSBs].
-                - is_engine_broken_history (NDArray[int64]): Structural failure flag history.
+                - engine_status_history (NDArray[int64]): Structural failure flag history.
                 - time_history (NDArray[float64]): Deterministic simulation timestamps in seconds.
         """
-        # Unpacks the initial conditions.
-        initial_speed, initial_pressure, initial_temperature = initial_conditions
-
         # Calculates the total number of iterations needed.
         total_steps = int(
             np.ceil(self._cfg.total_simulation_time / self._cfg.simulation_step)
         )
 
-        # Calculates to how many digits the time history should be rounded to.
-        simulation_step_str = str(self._cfg.simulation_step)
-        #? Decimal(): Class for exact base-10 arithmetic, rather than base-2 binary math.
-        simulation_step_decimal = Decimal(value = simulation_step_str)
-        #? .as_tuple(): Decomposes a Decimal object to its mathematical parts.
-        #   f.e. '0.001' -> DecimalTuple(sign = 0, digits = (1,), exponent = -3)
-        simulation_step_decimal_tuple: DecimalTuple = simulation_step_decimal.as_tuple()
-        #?  .exponent: Extracts jus the exponent integer of a DecimalTuple.
-        simulation_step_decimal_exponent: int = simulation_step_decimal_tuple.exponent
-        
-        time_history_rounding_decimals: int = max(0, -simulation_step_decimal_exponent)
+        # Creates a time history array.
+        time_history: NDArray[float64] = self._create_time_history(total_steps = total_steps)
 
-        # Populates the time history as it is deterministic.
-        time_history: NDArray[float64] = np.linspace(
-            start = 0.0,
-            stop = self._cfg.total_simulation_time,
-            num = total_steps + 1,
-            dtype = float64
-        ).round(decimals = time_history_rounding_decimals)
-
-        # Creates empty data structures.
-        fuel_flow_history: NDArray[int64] = np.empty(
-            total_steps + 1,
-            int64
-        )
-
-        speed_history: NDArray[int64] = np.empty(
-            total_steps + 1,
-            int64
-        )
-        speed_history[0]= initial_speed
-
-        pressure_history: NDArray[int64] = np.empty(
-            total_steps + 1,
-            int64
-        )
-        pressure_history[0]= initial_pressure
-
-        temperature_history: NDArray[int64] = np.empty(
-            total_steps + 1,
-            int64
-        )
-        temperature_history[0]= initial_temperature
-
-        is_engine_broken_history: NDArray[int64] = np.empty(
-            total_steps + 1,
-            int64
+        # Creates empty histories.
+        fuel_flow_history, speed_history, pressure_history, temperature_history, engine_status_history = self._initialize_histories(
+            total_steps = total_steps,
+            initial_conditions = initial_conditions
         )
 
         # ------- Simulation Loop. -------
         is_engine_broken: bool = False
+        
         # Defines local variables for the gains, so they can be modified if the engine breaks.
         speed_gain_coeff: int = self._cfg.speed_gain_coeff_quantized
         compressor_pressure_gain: int = self._cfg.compressor_pressure_gain_quantized
@@ -475,10 +515,12 @@ class AircraftEngineSimulatorFixedPoint:
             # Calculates the current physical simulation time.
             k: float = i * self._cfg.simulation_step
 
+            current_fuel_flow: int
+
             # Modifies the system behaviour, IF engine is broken.
             if is_engine_broken:
                 # Simulates a cut-off.
-                current_fuel_flow: int = 0
+                current_fuel_flow = 0
             
                 speed_gain_coeff = 0
                 compressor_pressure_gain = 0
@@ -487,9 +529,9 @@ class AircraftEngineSimulatorFixedPoint:
             
             else:
                 # Fetches the inputs.
-                current_fuel_flow: int = self._fetch_current_fuel_flow(k = k)
+                current_fuel_flow = self._fetch_current_fuel_flow(k = k)
 
-            is_engine_broken_history[i] = is_engine_broken
+            engine_status_history[i] = is_engine_broken
             
             fuel_flow_history[i] = current_fuel_flow
 
@@ -541,10 +583,10 @@ class AircraftEngineSimulatorFixedPoint:
         
         fuel_flow_history[total_steps] = last_fuel_flow
 
-        is_engine_broken_history[total_steps] = is_engine_broken
+        engine_status_history[total_steps] = is_engine_broken
 
         # Packs all the histories in a single tuple.
-        histories: histories_type = (fuel_flow_history, speed_history, pressure_history, temperature_history, is_engine_broken_history, time_history)
+        histories: histories_type = (fuel_flow_history, speed_history, pressure_history, temperature_history, engine_status_history, time_history)
 
         # Exports the input and output histories, so the data can be used as a golden reference, when compared to hardware outputs.
         self._export_histories(histories = histories)

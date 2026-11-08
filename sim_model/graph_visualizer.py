@@ -4,10 +4,12 @@
 #* ======= Libraries =======
 # ------- Native. -------
 from dataclasses import dataclass
+from typing import Literal
 
 # ------- Externals. -------
 import matplotlib.pyplot as plt
 import numpy as np
+
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -15,6 +17,20 @@ from matplotlib.widgets import CheckButtons
 from numpy import float64, int64
 from numpy.typing import NDArray
 
+# Defines custom types.
+LegendLocType = Literal[
+    "best",
+    "upper right",
+    "upper left",
+    "lower left",
+    "lower right",
+    "right",
+    "center left",
+    "center right",
+    "lower center",
+    "upper center",
+    "center"
+]
 
 #* ======= Graph Visualizer's Config Dataclass =======
 @dataclass(frozen = True)
@@ -183,7 +199,7 @@ class GraphVisualizer:
             grid_linestyle: str,
             grid_alpha: float,
 
-            legend_loc: str
+            legend_loc: LegendLocType
     ) -> Line2D:
         """
         Plots a state trajectory array onto a specified Matplotlib axis with styling configurations.
@@ -204,7 +220,7 @@ class GraphVisualizer:
             ax_ylabel (str): Vertical axis label string (empty string to omit).
             grid_linestyle (str): Grid line style pattern (empty string to omit grid).
             grid_alpha (float): Opacity factor for the background grid lines.
-            legend_loc (str): Legend positioning string (e.g., 'upper right', 'lower right').
+            legend_loc (LegendLocType): Legend positioning string (e.g., 'upper right', 'lower right').
 
         Returns:
             Line2D: The constructed 2D line plot object.
@@ -260,13 +276,11 @@ class GraphVisualizer:
         Returns:
             None
         """
-        first_failure_idx = int(failure_indices[0][0])
-        failure_time: float = time_history[first_failure_idx]
+        first_failure_idx = int(failure_indices[0])
+        failure_time = float(time_history[first_failure_idx])
 
         # Draws a vertical line and a small text across all subplots.
         for ax in axes:
-            ax: Axes
-        
             ax.axvline(
                 x = failure_time,
                 color = self._cfg.engine_failure_line_color,
@@ -314,13 +328,9 @@ class GraphVisualizer:
         floating_active, fixed_active = checkbox.get_status()
 
         for floating_line in floating_lines:
-            floating_line: Line2D
-
             floating_line.set_visible(b = floating_active)
 
         for fixed_point_line in fixed_point_lines:
-            fixed_point_line: Line2D
-
             fixed_point_line.set_visible(b = fixed_active)
 
         fig.canvas.draw_idle()
@@ -408,8 +418,8 @@ class GraphVisualizer:
 
         # ------- Plots the datas. -------
         # Fuel Flow and Rotational Speed.
-        fuel_flow_and_speed_fig, fuel_flow_and_speed_ax = plt.subplots(1, 1)
-        fuel_flow_and_speed_ax: Axes
+        fuel_flow_and_speed_fig, fuel_flow_and_speed_ax_obj = plt.subplots(1, 1)
+        fuel_flow_and_speed_ax: Axes = fuel_flow_and_speed_ax_obj
 
         line_fuel_flow_floating = self._plot_data_history(
             ax = fuel_flow_and_speed_ax,
@@ -476,8 +486,8 @@ class GraphVisualizer:
         )
 
         # Compressor Pressure.
-        pressure_fig, pressure_ax = plt.subplots(1, 1)
-        pressure_ax: Axes
+        pressure_fig, pressure_ax_obj = plt.subplots(1, 1)
+        pressure_ax: Axes = pressure_ax_obj
 
         line_pressure_floating = self._plot_data_history(
             ax = pressure_ax,
@@ -512,8 +522,8 @@ class GraphVisualizer:
         )
 
         # Exhaust Gas Temperature.
-        temperature_fig, temperature_ax = plt.subplots(1, 1)
-        temperature_ax: Axes
+        temperature_fig, temperature_ax_obj = plt.subplots(1, 1)
+        temperature_ax: Axes = temperature_ax_obj
 
         line_temperature_floating = self._plot_data_history(
             ax = temperature_ax,
@@ -558,7 +568,7 @@ class GraphVisualizer:
         temperature_fig.subplots_adjust(left = 0.25)
 
         # ------- Adds custom manual axes (checkboxes). -------
-        checkboxes_ax_fuel_flow_and_speed: Axes = fuel_flow_and_speed_fig.add_axes([0.02, 0.7, 0.18, 0.15])
+        checkboxes_ax_fuel_flow_and_speed: Axes = fuel_flow_and_speed_fig.add_axes((0.02, 0.7, 0.18, 0.15))
         checkboxes_ax_fuel_flow_and_speed.set_title(
             label = "Display Mode",
             fontsize = 9,
@@ -573,7 +583,7 @@ class GraphVisualizer:
         self._checkboxes.append(cb_flow_speed)
 
         # Setups checkboxes for pressure.
-        checkboxes_ax_pressure: Axes = pressure_fig.add_axes([0.02, 0.7, 0.18, 0.15])
+        checkboxes_ax_pressure: Axes = pressure_fig.add_axes((0.02, 0.7, 0.18, 0.15))
         checkboxes_ax_pressure.set_title(
             label = "Display Mode",
             fontsize = 9,
@@ -588,7 +598,7 @@ class GraphVisualizer:
         self._checkboxes.append(cb_pressure)
 
         # Setups checkboxes for temperature.
-        checkbox_ax_temp: Axes = temperature_fig.add_axes([0.02, 0.7, 0.18, 0.15])
+        checkbox_ax_temp: Axes = temperature_fig.add_axes((0.02, 0.7, 0.18, 0.15))
         checkbox_ax_temp.set_title(
             label = "Display Mode",
             fontsize = 9,
@@ -604,8 +614,8 @@ class GraphVisualizer:
 
         # ------- Adds markers to the plots -------
         # Vertical Failure Highlight Line.
-        failure_indices: NDArray[int64] = np.where(speed_history_floating > self._cfg.max_speed)
-        did_it_fail: bool = (len(failure_indices[0]) > 0)
+        failure_indices: NDArray[int64] = np.where(speed_history_floating > self._cfg.max_speed)[0] #TODO AC
+        did_it_fail: bool = (len(failure_indices) > 0)
 
         axes: list[Axes] = [fuel_flow_and_speed_ax, pressure_ax, temperature_ax]
 

@@ -23,7 +23,7 @@ from numpy.typing import NDArray
 # ------- Customs. -------
 from scripts.config_loader import ConfigLoader, SystemConfig
 from scripts.generate_verilog_header_file import generate_verilog_header_file
-from scripts.locate_executables import locate_iverilog_executable, locate_verilator_executable
+from scripts.locate_executables import ConfigExecutableLocater, ExecutableLocater
 from scripts.run_synthesis import ConfigSynthesisRunner, SynthesisRunner
 from sim_model.aircraft_engine_simulator_fixed_point import (
     AircraftEngineSimulatorFixedPoint,
@@ -40,11 +40,19 @@ from subprocess import CompletedProcess
 #* ======= Main Loop =======
 if __name__ == "__main__":
     # ------- Configurations. -------
+    # Initializes the executable locater.
+    config_executable_locater = ConfigExecutableLocater(
+        hardcoded_iverilog_path = Path("C:/iverilog/bin"),
+        hardcoded_verilator_path = Path("D:/Programs/oss-cad-suite"),
+        hardcoded_vivado_path = Path("D:/Programs/2025.2/Vivado/bin/vivado.bat")
+    )
+
+    executable_locater = ExecutableLocater(config_executable_locater = config_executable_locater)
+
     # Locates Icarus Verilog and adds to system PATH if present.
     iverilog_executable_path: Path | None = None
-
     try:
-        iverilog_executable_path = locate_iverilog_executable(hardcoded_iverilog_path = "C:/iverilog/bin")
+        iverilog_executable_path = executable_locater.locate_iverilog_executable()
         iverilog_bin_dir: str = str(iverilog_executable_path.parent)
 
         if iverilog_bin_dir not in os.environ.get("PATH", ""):
@@ -68,8 +76,6 @@ if __name__ == "__main__":
     SCRIPTS_DIR_PATH: Path = MAIN_DIR_PATH / "scripts"
     TCL_SCRIPT_PATH: Path = SCRIPTS_DIR_PATH / "synth.tcl"
     README_FILE_PATH: Path = MAIN_DIR_PATH / "README.md"
-
-    HARDCODED_VIVADO_PATH: Path = Path(r"D:\Programs\2025.2\Vivado\bin\vivado.bat")
 
     TOP_MODULE: str = "aircraft_engine_simulator_top"
     VERILOG_SRC_FILE_PATHS: list[Path] = [
@@ -231,7 +237,7 @@ if __name__ == "__main__":
     )
     
     # Parses the command-line arguments.
-    args: Namespace = parser.parse_args() #TODO ATH
+    args: Namespace = parser.parse_args()
 
     # ------- Linting. -------
     # 'python main.py --lint'.
@@ -240,6 +246,8 @@ if __name__ == "__main__":
         print("Running linters (Ruff, Verible and Verilator)...")
 
         # IF locally exists, runs Ruff.
+        ruff_status: str
+
         ruff_path: str | None = shutil.which(cmd = "ruff")
         if ruff_path is not None:
             ruff_cmd: list[str] = [
@@ -248,46 +256,51 @@ if __name__ == "__main__":
                 "."
             ]
 
-            ruff_result: CompletedProcess = subprocess.run(
+            ruff_result: CompletedProcess[str] = subprocess.run(
                 ruff_cmd,
-                cwd = MAIN_DIR_PATH
+                cwd = MAIN_DIR_PATH,
+                text = True
             )
 
-            ruff_status: str = "SUCCESS" if ruff_result.returncode == 0 else "FAILED"
+            ruff_status = "SUCCESS" if ruff_result.returncode == 0 else "FAILED"
             
             print(f"-> [{ruff_status}] Ruff")
         else:
-            ruff_status: str = "NOT FOUND"
-            print("[NOT FOUND] Ruff not found locally (enforced via GitHub Action 'Ruff').")
+            ruff_status = "NOT FOUND"
+            print(f"[{ruff_status}] Ruff not found locally (enforced via GitHub Action 'Ruff').")
 
         # IF locally exists, runs Verible.
+        verible_status: str
+
         verible_path: str | None = shutil.which(cmd = "verible-verilog-lint")
         if verible_path is not None:
             verilog_file_paths: list[str] = [str(file_path) for file_path in VERILOG_SRC_FILE_PATHS]
 
-            verible_cmd: list[str] = [
+            verible_cmd: list[str] = [ #TODO AC
                 "verible-verilog-lint",
                 "--rules_config",
                 ".rules.verible_lint"
             ] + verilog_file_paths
 
-            verible_result: CompletedProcess = subprocess.run(
+            verible_result: CompletedProcess[str] = subprocess.run(
                 verible_cmd,
-                cwd = MAIN_DIR_PATH
+                cwd = MAIN_DIR_PATH,
+                text = True
             )
 
-            verible_status: str = "SUCCESS" if verible_result.returncode == 0 else "FAILED"
+            verible_status = "SUCCESS" if verible_result.returncode == 0 else "FAILED"
 
             print(f"-> [{verible_status}] Verible")
         else:
-            verible_status: str = "NOT FOUND"
-            print("[NOT FOUND] Verible not found locally (enforced via GitHub Action 'Verible').")
+            verible_status = "NOT FOUND"
+            print(f"[{verible_status}] Verible not found locally (enforced via GitHub Action 'Verible').")
 
-        # Runs Verilator.
+        # IF locally exists, runs Verilator.
+        verilator_status: str
+
         verilator_executable_path: Path | None = None
-    
         try:
-            verilator_executable_path = locate_verilator_executable(hardcoded_verilator_path = Path("D:/Programs/oss-cad-suite"))
+            verilator_executable_path = executable_locater.locate_verilator_executable()
             verilator_bin_dir: str = str(verilator_executable_path.parent)
     
             if verilator_bin_dir not in os.environ.get("PATH", ""):
@@ -297,25 +310,59 @@ if __name__ == "__main__":
             print("[NOTE] Verilator not found locally (DO-254 linting will be enforced in CI).")
         
         if verilator_executable_path is not None:
-            verilator_cmd: list[str] = [
+            verilator_cmd: list[str] = [ #TODO AC
                 str(verilator_executable_path),
                 "--lint-only",
                 "-Wall",
+                "-Wwarn-style",
+                "-Werror-WIDTH",
+                "-Werror-UNOPTFLAT",
+                "-Werror-CASEINCOMPLETE",
+                "-Werror-LATCH",
                 "-I" + str(RTL_DIR_PATH),
                 str(RTL_DIR_PATH/f"{TOP_MODULE}.v")
             ]
             
-            verilator_result: CompletedProcess = subprocess.run(
+            verilator_result: CompletedProcess[str] = subprocess.run(
                 verilator_cmd,
-                cwd = MAIN_DIR_PATH
+                cwd = MAIN_DIR_PATH,
+                text = True
             )
 
-            verilator_status: str = "SUCCESS" if verilator_result.returncode == 0 else "FAILED"
+            verilator_status = "SUCCESS" if verilator_result.returncode == 0 else "FAILED"
 
             print(f"-> [{verilator_status}] Verilator")
         else:
-            verilator_status: str = "NOT FOUND"
-            print("[NOT FOUND] Verilator not found locally (enforced via GitHub Action 'Verilator').")
+            verilator_status = "NOT FOUND"
+            print(f"[{verilator_status}] Verilator not found locally (enforced via GitHub Action 'Verilator').")
+
+        # IF locally exists, runs Mypy.
+        mypy_status: str
+
+        mypy_path: str | None = shutil.which(cmd = "mypy")
+        if mypy_path is not None:
+            mypy_cmd: list[str] = [ #TODO AC
+                "mypy",
+                "--config-file",
+                "pyproject.toml",
+                "scripts",
+                "sim_model",
+                "tb",
+                "main.py"
+            ]
+
+            mypy_result: CompletedProcess[str] = subprocess.run(
+                mypy_cmd,
+                cwd = MAIN_DIR_PATH,
+                text = True
+            )
+
+            mypy_status = "SUCCESS" if mypy_result.returncode == 0 else "FAILED"
+            
+            print(f"-> [{mypy_status}] Mypy")
+        else:
+            mypy_status = "NOT FOUND"
+            print(f"[{mypy_status}] Mypy not found locally (enforced via GitHub Action 'Mypy').")
 
         # Checks for failures.
         if (ruff_status != "FAILED") and (verible_status != "FAILED") and (verilator_status != "FAILED"):
@@ -461,9 +508,7 @@ if __name__ == "__main__":
         build_synth_dir_path = BUILD_SYNTH_DIR_PATH,
         scripts_dir_path = SCRIPTS_DIR_PATH,
         tcl_script_path = TCL_SCRIPT_PATH,
-        readme_file_path = README_FILE_PATH,
-
-        hardcoded_vivado_path = HARDCODED_VIVADO_PATH
+        readme_file_path = README_FILE_PATH
     )
 
     synthesis_runner = SynthesisRunner(config_synthesis_runner = config_synthesis_runner)
@@ -475,7 +520,7 @@ if __name__ == "__main__":
     )
 
     #: time_history stays stable independent from the representation, so it doesnt need to be returned from floating simulation as well.
-    fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point, is_engine_broken_history, _ = aircraft_engine_simulator_fixed_point.run_simulation(
+    fuel_flow_history_fixed_point, speed_history_fixed_point, pressure_history_fixed_point, temperature_history_fixed_point, engine_status_history, _ = aircraft_engine_simulator_fixed_point.run_simulation(
         initial_conditions = (
             0, 
             cfg.ambient.ambient_pressure_quantized, 
@@ -496,10 +541,10 @@ if __name__ == "__main__":
     print("Quantization Verification Results: ")
 
     # Calculates the error between the floating and fixed-point.
-    fuel_flow_error: NDArray = fuel_flow_history_floating - fuel_flow_history_fixed_point_scaled
-    speed_error: NDArray = speed_history_floating - speed_history_fixed_point_scaled
-    pressure_error: NDArray = pressure_history_floating - pressure_history_fixed_point_scaled
-    temperature_error: NDArray = temperature_history_floating - temperature_history_fixed_point_scaled
+    fuel_flow_error: NDArray[float64] = fuel_flow_history_floating - fuel_flow_history_fixed_point_scaled
+    speed_error: NDArray[float64] = speed_history_floating - speed_history_fixed_point_scaled
+    pressure_error: NDArray[float64] = pressure_history_floating - pressure_history_fixed_point_scaled
+    temperature_error: NDArray[float64] = temperature_history_floating - temperature_history_fixed_point_scaled
 
     software_verifier.run_software_verifier(
         original_signal = fuel_flow_history_floating,
@@ -563,6 +608,9 @@ if __name__ == "__main__":
         test_dir = TB_DIR_PATH
     )
 
+    # Finds the vivado path.
+    vivado_path: Path = executable_locater.locate_vivado_executable()
+
     # ------- Synthesis. -------
     # -> 'python main.py --sweep'.
     # -> 'python main.py --sweep 2.0 10.0'.
@@ -592,7 +640,8 @@ if __name__ == "__main__":
 
             wns: float = synthesis_runner.run_synthesis(
                 target_period_ns = test_period_ns,
-                should_update_readme = False
+                should_update_readme = False,
+                vivado_path = vivado_path
             )
 
             # Updates the period boundaries.
@@ -606,9 +655,10 @@ if __name__ == "__main__":
             print(f"-> Period: {test_period_ns} & WNS: {wns}")
 
         # Re-runs synthesis with the highest frequency to update the README.
-        _ = synthesis_runner.run_synthesis(
+        final_sweep_wns = synthesis_runner.run_synthesis(
             target_period_ns = best_synthesizable_period,
-            should_update_readme = True
+            should_update_readme = True,
+            vivado_path = vivado_path
         )
 
         print()
@@ -619,7 +669,8 @@ if __name__ == "__main__":
         print()
         print(f"Running single Out-of-Context synthesis at target period: {target_period} ns...")
 
-        _ = synthesis_runner.run_synthesis(
+        synth_wns = synthesis_runner.run_synthesis(
             target_period_ns = target_period,
-            should_update_readme = True
+            should_update_readme = True,
+            vivado_path = vivado_path
         )
