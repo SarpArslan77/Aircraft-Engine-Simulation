@@ -4,7 +4,7 @@
 #* ======= Libraries =======
 # ------- Externals. -------
 import numpy as np
-from numpy import inf
+from numpy import float64, inf
 from numpy.typing import NDArray
 
 
@@ -29,7 +29,7 @@ class SoftwareVerifier:
 
     def _calculate_mae(
             self,
-            error: NDArray
+            error: NDArray[float64]
     ) -> float:
         """
         Calculates the Mean Absolute Error (MAE) between reference and quantized signals.
@@ -38,7 +38,7 @@ class SoftwareVerifier:
         MAE = (1 / N) * sum(|error|)
 
         Args:
-            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+            error (NDArray[float64]): Residual error array (reference_signal - quantized_scaled_signal).
 
         Returns:
             float: Mean Absolute Error value across all time samples.
@@ -47,7 +47,7 @@ class SoftwareVerifier:
 
     def _calculate_max_error(
             self,
-            error: NDArray
+            error: NDArray[float64]
     ) -> float:
         """
         Calculates the Maximum Absolute Error (ME) observed across the trajectory.
@@ -56,7 +56,7 @@ class SoftwareVerifier:
         ME = max(|error|)
 
         Args:
-            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+            error (NDArray[float64]): Residual error array (reference_signal - quantized_scaled_signal).
 
         Returns:
             float: Peak absolute deviation across the simulation.
@@ -65,7 +65,7 @@ class SoftwareVerifier:
 
     def _calculate_mse_and_rmse(
             self,
-            error: NDArray
+            error: NDArray[float64]
     ) -> tuple[float, float]:
         """
         Computes Mean Squared Error (MSE) and Root-Mean-Square Error (RMSE).
@@ -75,7 +75,7 @@ class SoftwareVerifier:
         2. RMSE = sqrt(MSE)
 
         Args:
-            error (NDArray): Residual error array (reference_signal - quantized_scaled_signal).
+            error (NDArray[float64]): Residual error array (reference_signal - quantized_scaled_signal).
 
         Returns:
             tuple[float, float]: Tuple containing:
@@ -91,8 +91,8 @@ class SoftwareVerifier:
 
     def _calculate_sqnr(
             self,
-            original_signal: NDArray,
-            error: NDArray
+            original_signal: NDArray[float64],
+            error: NDArray[float64]
     ) -> float:
         """
         Calculates the Signal-to-Quantization-Noise Ratio (SQNR) in decibels (dB).
@@ -104,16 +104,16 @@ class SoftwareVerifier:
         SQNR = 10 * log10(sum(signal^2) / sum(error^2)) [dB]
 
         Args:
-            original_signal (NDArray): Baseline continuous floating-point golden reference signal array.
-            error (NDArray): Residual quantization error array (original_signal - quantized_signal).
+            original_signal (NDArray[float64]): Baseline continuous floating-point golden reference signal array.
+            error (NDArray[float64]): Residual quantization error array (original_signal - quantized_signal).
 
         Returns:
             float: Signal-to-Quantization-Noise Ratio in decibels [dB], or +/-inf on edge cases.
         """
         # ------- Calculates SQNR. -------
         # Calculates the signals powers.
-        original_signal_power: NDArray = original_signal ** 2
-        error_power: NDArray = error ** 2
+        original_signal_power: NDArray[float64] = original_signal ** 2
+        error_power: NDArray[float64] = error ** 2
 
         # Sums the power of each element.
         original_signal_power_summed: float = np.sum(a = original_signal_power)
@@ -129,8 +129,8 @@ class SoftwareVerifier:
 
     def run_software_verifier(
             self,
-            original_signal: NDArray,
-            error: NDArray,
+            original_signal: NDArray[float64],
+            error: NDArray[float64],
             state_name: str
     ) -> None:
         """
@@ -140,8 +140,8 @@ class SoftwareVerifier:
         summary to standard output for verification auditing.
 
         Args:
-            original_signal (NDArray): Continuous floating-point reference signal array.
-            error (NDArray): Residual error array (original_signal - quantized_scaled_signal).
+            original_signal (NDArray[float64]): Continuous floating-point reference signal array.
+            error (NDArray[float64]): Residual error array (original_signal - quantized_scaled_signal).
             state_name (str): Descriptive identifier of the engine state (e.g., 'Rotational Speed').
 
         Returns:
