@@ -308,9 +308,10 @@ if __name__ == "__main__":
         except FileNotFoundError:
             print()
             print("[NOTE] Verilator not found locally (DO-254 linting will be enforced in CI).")
-        
+
+        #TODO AC
         if verilator_executable_path is not None:
-            verilator_cmd: list[str] = [ #TODO AC
+            verilator_cmd: list[str] = [ 
                 str(verilator_executable_path),
                 "--lint-only",
                 "-Wall",

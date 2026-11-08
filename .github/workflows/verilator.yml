@@ -31,12 +31,13 @@ jobs:
       - name: Check Verilator Version
         run: verilator --version
 
+      #TODO AC / Can i not make this absolute path? or does it have to be this way
       - name: Lint RTL with strict DO-254 rules
         run: | 
-          verilator --lint-only -Wall \ #TODO AC
+          verilator --lint-only -Wall \ 
             -Wwarn-style \
             -Werror-WIDTH \
             -Werror-UNOPTFLAT \
             -Werror-CASEINCOMPLETE \
             -Werror-LATCH \
-            -Irtl rtl/aircraft_engine_simulator_top.v #TODO Can i not make this absolute path? or does it have to be this way
+            -Irtl rtl/aircraft_engine_simulator_top.v
