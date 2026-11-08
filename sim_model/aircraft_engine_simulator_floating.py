@@ -128,36 +128,14 @@ class AircraftEngineSimulatorFloating:
             k: float
     ) -> float:
         """
-        Evaluates the physical commanded fuel flow rate based on simulation time.
-
-        Maps a continuous operational engine mission schedule:
-        - Idle: 10.0 kg/h for t < 2.0 s
-        - Throttle Slam (Rapid Acceleration): 90.0 kg/h for 2.0 s <= t < 18.0 s
-        - Throttle Chop (Deceleration): 10.0 kg/h for t >= 18.0 s
-
-        Args:
-            k (float): Current physical simulation time in seconds.
-
-        Returns:
-            float: Commanded fuel flow rate (W_f) in engineering units [kg/h].
+        #TODO Update docstring.
         """
-        fuel_flow: float | None = None
-
-        # Idle fuel flow.
-        if (k == 0.0):
-            fuel_flow = 10.0
-        if (0.0 < k < 2.0):
-            fuel_flow = 10.0
-
-        # Throttle slam / rapic acceleration.
-        elif (k == 2.0) or (2.0 < k < 18.0):
-            fuel_flow = 90.0
-
-        # Throttle chop / deceleration.
-        elif (k == 18.0) or (18.0 < k < self._cfg.total_simulation_time) or (k == self._cfg.total_simulation_time):
-            fuel_flow = 10.0
-
-        return fuel_flow
+        if k < 2.0:
+            return 10.0
+        elif k < 18.0:
+            return 90.
+        else:
+            return 10.0
 
     def _calculate_target_values(
             self,
@@ -364,10 +342,12 @@ class AircraftEngineSimulatorFloating:
             # Calculates the current physical simulation time.
             k: float = i * self._cfg.simulation_step
 
+            current_fuel_flow: float
+
             # Modifies the system behaviour, IF engine is broken.
             if is_engine_broken:
                 # Simulates a cut-off.
-                current_fuel_flow: float = 0.0
+                current_fuel_flow = 0.0
 
                 speed_gain_coeff = 0.0
                 compressor_pressure_gain = 0.0
@@ -376,7 +356,7 @@ class AircraftEngineSimulatorFloating:
                 
             else:
                 # Fetches the inputs.
-                current_fuel_flow: float = self._fetch_current_fuel_flow(k = k)
+                current_fuel_flow = self._fetch_current_fuel_flow(k = k)
 
             fuel_flow_history[i] = current_fuel_flow
 

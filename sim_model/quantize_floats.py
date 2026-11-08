@@ -48,12 +48,14 @@ def quantize_floats(
     # Calculates the bounds and saturates the integer.
     total_bit_width: int = int_bit_width + fractional_bit_width
 
+    min_int: int
+    max_int: int
     if signed:
-        min_int: int = -(1 << (total_bit_width - 1))
-        max_int: int = (1 << (total_bit_width - 1)) - 1
+        min_int = -(1 << (total_bit_width - 1))
+        max_int = (1 << (total_bit_width - 1)) - 1
     else:
-        min_int: int = 0
-        max_int: int = (1 << total_bit_width) - 1
+        min_int = 0
+        max_int = (1 << total_bit_width) - 1
 
     saturated_val: int = max(min_int, min(max_int, rounded_val))
 
