@@ -50,14 +50,16 @@ jobs:
               id: filter
               with:
                 filters: |
-                  - ".github/workflows/ci.yml"
-                  - "rtl/**"
-                  - "scripts/**"
-                  - "sim_model/**"
-                  - "tb/**"
-                  - "main.py"
-                  - "Makefile"
-                  - "requirements.txt"
+                  engine:
+                    - ".github/workflows/ci.yml"
+                    - "rtl/**"
+                    - "scripts/**"
+                    - "sim_model/**"
+                    - "tb/**"
+                    - "config.toml"
+                    - "main.py"
+                    - "Makefile"
+                    - "requirements.txt"
 
             # Installs Icarus Verilog simulator via apt. 
             - name: Install Icarus Verilog (iverilog)
@@ -100,7 +102,7 @@ jobs:
             # Archives simulation artifacts (results csv & sim logs).
             - name: Upload Test Artifacts
               #? if: always(): Doesnt skip this step, even if the tests fail.
-              if: always() && steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+              if: always() && (steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch')
               #? actions/upload-artifact@v6: Zips up files generated during the run
               #     and attaches them to the GitHub web page.
               uses: actions/upload-artifact@v6
