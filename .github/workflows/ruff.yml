@@ -5,7 +5,23 @@ name: Ruff
 
 on:
   push:
+    branches: [main]
+    paths:
+      - "scripts/**.py"
+      - "sim_model/**.py"
+      - ".ruff.toml"
+      - "main.py"
+      - "pyproject.toml"
+      - "requirements.txt"
   pull_request:
+    branches: [main]
+    paths:
+      - "scripts/**.py"
+      - "sim_model/**.py"
+      - ".ruff.toml"
+      - "main.py"
+      - "pyproject.toml"
+      - "requirements.txt"
   #? workflow_dispatch: Enables manually triggering the workflow from GitHub.
   workflow_dispatch:
 
