@@ -24,7 +24,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for RTL Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rtl:
+              - "rtl/**.v"
+              - "rtl/**.vh"
+              - ".rules.verible_lint"
+
       - name: Install Verible
+        if: steps.filter.outputs.rtl == 'true' || github.event_name == 'workflow_dispatch'
         #? shell: bash -> Executes the script in 'bash' shell.
         shell: bash
         run: |
@@ -80,9 +91,11 @@ jobs:
           sudo install "$LINTER" /usr/local/bin/verible-verilog-lint
 
       - name: Check Verible version
+        if: steps.filter.outputs.rtl == 'true' || github.event_name == 'workflow_dispatch'
         run: verible-verilog-lint --version
 
       - name: Lint RTL
+        if: steps.filter.outputs.rtl == 'true' || github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail

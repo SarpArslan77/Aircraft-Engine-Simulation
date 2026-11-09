@@ -5,7 +5,9 @@ name: Ruff
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   #? workflow_dispatch: Enables manually triggering the workflow from GitHub.
   workflow_dispatch:
 
@@ -24,7 +26,24 @@ jobs:
         #? checkout: Checks out the repository's files into GitHub Action runner's working directory. 
         uses: actions/checkout@v4
 
+        # Detects changes in Python code or tool configs.
+        #TODO AC
+      - name: Check for Python Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - "scripts/**.py"
+              - "sim_model/**.py"
+              - ".ruff.toml"
+              - "main.py"
+              - "pyproject.toml"
+              - "requirements.txt"
+
       - name: Run Ruff
+        #TODO AC
+        if: steps.filter.outputs.python == 'true' || github.event_name == 'workflow_dispatch'
         #? astral-sh: Actions owner.
         #? ruff-action: Sets up and runs Ruff on the workflow.
         uses: astral-sh/ruff-action@v4.1.0
