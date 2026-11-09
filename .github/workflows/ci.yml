@@ -20,6 +20,7 @@ on:
         branches: ["main"]
     pull_request:
         branches: ["main"]
+    workflow_dispatch:
 
 permissions:
   contents: read
@@ -44,8 +45,23 @@ jobs:
               #     of the repo onto VM.
               uses: actions/checkout@v5
             
+            - name: Check for Engine & Simulation Changes
+              uses: dorny/paths-filter@v3
+              id: filter
+              with:
+                filters: |
+                  - ".github/workflows/ci.yml"
+                  - "rtl/**"
+                  - "scripts/**"
+                  - "sim_model/**"
+                  - "tb/**"
+                  - "main.py"
+                  - "Makefile"
+                  - "requirements.txt"
+
             # Installs Icarus Verilog simulator via apt. 
             - name: Install Icarus Verilog (iverilog)
+              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               #? run: | -> Runs Bash shell commands in terminal.
               run: |
                 #? apt: Ubuntu's package manager.
@@ -54,10 +70,12 @@ jobs:
 
             # Verifies simulator is installed.
             - name: Check iverilog Version
+              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               run: iverilog -V
 
             # Sets up the Python environment.
             - name: Set up Python
+              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               #? actions|setup-python@v6: GitHub tool, provisions Python.
               uses: actions/setup-python@v6
               with:
@@ -67,6 +85,7 @@ jobs:
             
             # Installs the project dependencies.
             - name: Install Python Dependencies
+              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               run: |
                 #? -f file.py: Shell-checks, if 'file.py' exists.
                 python -m pip install --upgrade pip
@@ -74,13 +93,14 @@ jobs:
             
             # Executes the verication pipeline.
             - name: Run Main Simulation & Cocotb Verification
+              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               run: |
                 python main.py
             
             # Archives simulation artifacts (results csv & sim logs).
             - name: Upload Test Artifacts
               #? if: always(): Doesnt skip this step, even if the tests fail.
-              if: always()
+              if: always() && steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
               #? actions/upload-artifact@v6: Zips up files generated during the run
               #     and attaches them to the GitHub web page.
               uses: actions/upload-artifact@v6
