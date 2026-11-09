@@ -6,8 +6,16 @@ name: Verilator Semantic Lint
 on:
   push:
     branches: [main]
+    paths:
+      - "rtl/**.v"
+      - "rtl/**.vh"
+      - ".rules.verible_lint"
   pull_request:
     branches: [main]
+    paths:
+      - "rtl/**.v"
+      - "rtl/**.vh"
+      - ".rules.verible_lint"
   workflow_dispatch:
 
 permissions:
