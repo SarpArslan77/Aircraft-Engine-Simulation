@@ -224,10 +224,13 @@ class ExecutableLocater:
             Path("C:/iverilog"),
             Path("C:/Program Files/iverilog"),
 
-            # Linux.
+            # Linux & Intel macOS.
             Path("/usr"),
             Path("/usr/local"),
-            Path("/opt/iverilog")  
+            Path("/opt/iverilog"),
+
+            # Apple Silicon macOS.
+            Path("/opt/homebrew")
         ]
 
         # List of all search functions, executed one-by-one in strict priority order.
@@ -306,10 +309,13 @@ class ExecutableLocater:
             Path("C:/tools/oss-cad-suite"),
             Path("C:/msys64/mingw64"),
             
-            # Linux.
+            # Linux & Intel macOS.
             Path("/usr"),
             Path("/usr/local"),
-            Path("/opt/verilator")
+            Path("/opt/verilator"),
+
+            # Apple Silicon macOS.
+            Path("/opt/homebrew")
         ]
         
         # List of all search functions, executed one-by-one in strict priority order.
@@ -385,9 +391,12 @@ class ExecutableLocater:
             Path("C:/Xilinx/Vivado"),
             Path("C:/Vivado"),
 
-            # Linux.
+            # Linux & Intel macOS.
             Path("/opt/Xilinx/Vivado"),
-            Path("/tools/Xilinx/Vivado") 
+            Path("/tools/Xilinx/Vivado"),
+
+            # Apple Silicon macOS.
+            Path("/opt/homebrew")
         ]
 
         # List of all search functions, executed one-by-one in strict priority order.
