@@ -44,7 +44,6 @@ jobs:
         #   as a single command-line string.
         #? --verbose: Tells to log every single URL it inspects along with
         #   its HTTP status code in the action console.
-        #? --exlude-mail: Tells to skip email addresses.
         #? --exclude (f.e. "build_synth/."): Tells to ignore links pointing to this.
         #? --exclude "http://localhost.": Prevents failures if any documents
         #   or comments reference local web servers.
@@ -55,7 +54,6 @@ jobs:
         with:
           args: >-
             --verbose
-            --exclude-mail
             --exclude "build_synth/."
             --exclude "http://localhost."
             --exclude "https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/.**"
