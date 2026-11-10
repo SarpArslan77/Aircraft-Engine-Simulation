@@ -19,6 +19,8 @@ explicit_package_bases = true
 module = [
     "cocotb.*",
     "cocotbext.*",
-    "matplotlib.*"
+    "matplotlib.*",
+    "pandas",
+    "pandas."
 ]
 ignore_missing_imports = true
