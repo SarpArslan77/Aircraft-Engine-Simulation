@@ -7,7 +7,6 @@ import numpy as np
 from numpy import float64, inf
 from numpy.typing import NDArray
 
-
 #* ======= Software Verifier =======
 class SoftwareVerifier:
     """

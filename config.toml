@@ -11,7 +11,7 @@ ambient_pressure = 101.3 # [kPa].
 ambient_temperature = 15.0
 
 [physics.inertia]
-rotor_inertial_time_const = 1.5
+rotor_inertial_time_const = 1.5 #TODO Explain in LaTex how it is derived from the paper.
 pressure_volume_time_const = 0.15
 thermal_time_const = 0.8
 
