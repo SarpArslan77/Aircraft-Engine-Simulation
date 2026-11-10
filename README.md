@@ -153,6 +153,56 @@ The project features a highly automated execution script (`main.py`) which manag
 
 ---
 
+## Safety-Critical Design & Verification Standards
+
+In safety-critical avionics and propulsion engineering (e.g., RTCA DO-254 for airborne electronic hardware and DO-178C for flight software), system determinism, bounded execution time, and strict verification rigor are mandatory. 
+
+This digital twin adheres to a **Zero-Warning, Zero-Waiver Policy**: no code is merged into `main` with unaddressed compiler warnings, linter waivers, or untyped interfaces.
+
+---
+
+### 1. NASA/JPL "Power of 10" Rules Compliance
+
+The Python reference models, testbench drivers, and automation toolchains are architected in compliance with the **NASA/JPL Laboratory for Reliable Software (JPL) Rules for Developing Safety-Critical Code**:
+
+| JPL Rule | Safety Principle | Repository Implementation | Verification & Enforcement Gate |
+| :--- | :--- | :--- | :--- |
+| **Rule 1** | **Simple Control Flow** | No recursion, unrestricted jumps, or deeply nested logic. Cyclomatic complexity is strictly bounded ($\le 7$) and branching is limited ($\le 6$). | Enforced via **Ruff** (`C90` McCabe complexity and `PLR0912` max branches) in `.ruff.toml`. |
+| **Rule 2** | **Fixed Loop Bounds** | All simulation loops and Cocotb hardware testbenches feature deterministic upper iteration bounds and timeout guards (`max_thermal_threshold_cross_duration`), preventing hang/deadlock conditions. | Validated in Cocotb testbenches (`tb/test_engine.py`) and discrete solvers. |
+| **Rule 3** | **No Dynamic Heap Allocation** | Post-initialization dynamic allocation is prohibited. Simulation history arrays are pre-allocated as contiguous blocks (`np.empty(..., dtype=int64)`) prior to solver execution. | Implemented in `AircraftEngineSimulatorFixedPoint` and `AircraftEngineSimulatorFloating`. |
+| **Rule 4** | **Bounded Function Size** | Functions adhere to single-responsibility decomposition and are restricted to a maximum length of 50 statements. | Enforced via **Ruff** (`PLR0915`) in `.ruff.toml`. |
+| **Rule 5** | **Defensive Assertion Density** | Strict precondition assertions and boundary checks validate state integrity, numerical ranges, and non-negative operational constraints ($N \ge 0$, $P \ge P_{\text{amb}}$). | Assertions embedded in Python models and Cocotb cycle monitors. |
+| **Rule 6** | **Minimal Data Scope** | Class attributes and variables are declared with minimal scope, leveraging immutable `@dataclass(frozen=True, slots=True)` configurations. | Enforced across all config schemas (`scripts/config_loader.py`). |
+| **Rule 7** | **Check Return Values** | Subprocess invocations (Vivado, Verilator, Ruff) and bus transaction acknowledgments are explicitly evaluated for non-zero exit codes. | Enforced in automation scripts (`scripts/run_synthesis.py`) and AXI testbenches. |
+| **Rule 10** | **Zero-Warning Compiler Policy** | Code must compile with all compiler warnings activated and zero tolerated warnings or stylistic waivers. | Enforced via CI pipeline quality gates (`-Wall`, `-Werror-*`, `strict = true`). |
+
+---
+
+### 2. Multi-Tier Static Analysis & Linting Stack
+
+The repository enforces a comprehensive dual-domain static analysis matrix spanning both software reference models and synthesizable Verilog RTL:
+
+| Tool | Target Domain | Standards & Flags Enforced | Safety / Defect Mode Addressed |
+| :--- | :--- | :--- | :--- |
+| **Mypy** | Python (`scripts/`, `sim_model/`, `tb/`, `main.py`) | `--strict`, `disallow_untyped_defs = true`, `check_untyped_defs = true`, `warn_return_any = true` | Prevents type mismatch bugs, unhandled `None` dereferences, and invalid numeric cast operations. |
+| **Ruff** | Python (`pyproject.toml`, `.ruff.toml`) | `E4`, `E7`, `E9`, `F`, `C90` (McCabe $\le 7$), `PLR0915` ($\le 50$ statements), `PLR0912` ($\le 6$ branches) | Enforces PEP-8 style, eliminates dead code/unused imports, and prevents spaghetti control flow. |
+| **Verible** | Verilog RTL (`rtl/*.v`) | `verible-verilog-lint`, `--rules_config .rules.verible_lint` | Validates synthesizable SystemVerilog/Verilog token styling, port definitions, and parameter storage types. |
+| **Verilator** | Synthesizable RTL (`rtl/aircraft_engine_simulator_top.v`) | `-Wall`, `-Wwarn-style`, `-Werror-WIDTH`, `-Werror-UNOPTFLAT`, `-Werror-CASEINCOMPLETE`, `-Werror-LATCH` | **DO-254 Hardware Integrity:** Detects bit-width truncation, un-inferred combinational latches, incomplete `case` statements, and cyclic logic hazards. |
+
+---
+
+### 3. Automated CI/CD Quality Gates
+
+Every commit and pull request to `main` must pass through independent, automated verification gates before merge authorization:
+* **Hardware Co-Simulation (`ci.yml`):** Multi-platform matrix (`ubuntu-latest` and `macos-latest`) executing 64-bit float math, $Q16.16$ bit-true simulation, and all 3 Cocotb AXI4-Lite hardware assertions.
+* **Semantic RTL Lint (`verilator.yml`):** Enforces strict zero-warning hardware synthesis hygiene under `-Wall` and critical `-Werror-*` flags.
+* **Syntax & Token Lint (`verible.yml`):** Verifies formatting, naming conventions, and synthesizable construct conformance.
+* **Type Soundness (`mypy.yml`):** Enforces 100% type annotation coverage in strict mode.
+* **Complexity & Style (`ruff.yml`):** Bounds cognitive cyclomatic complexity and structural nesting depth.
+* **Hyperlink Audit (`links.yml`):** Prevents documentation rot by validating all URIs via Rust-based `lychee`.
+
+---
+
 ## Memory-Mapped Register Map
 
 The simulator exposes a standard 32-bit AXI4-Lite bus interface:
