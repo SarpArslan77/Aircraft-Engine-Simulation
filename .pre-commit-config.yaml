@@ -1,0 +1,16 @@
+
+#* .pre-commit-config.yaml
+#TODO AC
+
+repos:
+  - repo: local
+    hooks:
+      - id: pipreqs-sync
+        name: Auto-sync requirements.txt (pipreqs)
+        # Scans imports, overwrites requirements.txt while ignoring
+        #   build an venv folders.
+        entry: pipreqs . --force --ignore __pycache__,.mypy_cache,.ruff_cache,.venv,.vscode,build_synth,sim_build
+        language: python
+        additional_dependencies: ["pipreqs", "cocotbext-axi"]
+        pass_filenames: false
+        files: ^(scripts/|sim_model/|tb/|main\.py|config\.toml)
