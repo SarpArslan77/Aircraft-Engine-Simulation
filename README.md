@@ -211,3 +211,15 @@ The simulator exposes a standard 32-bit AXI4-Lite bus interface:
 │   └── test_engine.py                            # AXI bus drivers, telemetry parsers, and assertions
 ├── main.py                                       # Top-level execution & simulation runner script
 └── README.md
+```
+---
+
+## References & Literature
+
+The mathematical modeling, calibration constants, and benchmark datasets implemented in this digital twin are grounded in the following experimental SR-30 micro-turbojet literature:
+
+1. **M. P. Torres, G. Sosa, L. A. Amezquita-Brooks, E. Liceaga-Castro, and P. del C. Zambrano-Robledo**, *"Identification of the Fuel-Thrust Dynamics of a Gas Turbo Engine,"* in *52nd IEEE Conference on Decision and Control (CDC)*, Florence, Italy, Dec. 2013, pp. 4535–4540.  
+   *(Provides the dynamic transfer function identification, physical engine limits at 87,000 RPM, and justification for the dominant rotor mechanical time constant $\tau \approx 0.75\text{--}1.5\text{ s}$.)*
+
+2. **S. Bhartu**, *"MAS4 – Gas Turbine,"* Laboratory Report, School of Mechanical, Industrial & Aeronautical Engineering, University of the Witwatersrand, Johannesburg, Oct. 2017.  
+   *(Provides the empirical calibration dataset: 15 steady-state operating points across 40,000 to 80,000 RPM recording fuel mass flow, compressor exit pressure ratio up to 2.82, and exhaust gas temperature).*
