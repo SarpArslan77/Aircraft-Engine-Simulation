@@ -47,7 +47,6 @@ scripts/code_to_txt.py
 old_branches
 
 #* ======= OS =======
-.vscode/
 *.swp
 *~
 
