@@ -120,3 +120,18 @@ jobs:
             software_results.csv
             sim_build/
           if-no-files-found: ignore
+
+  #TODO AC 
+  run-simulation-gate:
+    name: Run Engine Simulation & Cocotb Tests
+    needs: run-simulation
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify all matrix runners succeeded
+        run: |
+          if [ "${{ contains(needs.run-simulation.result, 'failure') || contains(needs.run-simulation.result, 'cancelled') }}" = "true" ]; then
+            echo "One or more matrix simulation jobs failed."
+            exit 1
+          fi
+          echo "All simulation matrix runs completed successfully!"
