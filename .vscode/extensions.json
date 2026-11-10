@@ -1,0 +1,45 @@
+{
+  "recommendations": [
+    // FPGA & Hardware Verification.
+    "teros-technology.teroshdl",
+    "mshr-h.veriloghdl",
+    "lramseyer.vaporview",
+    "rashwell.tcl",
+
+    // Python Toolchain.
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    "ms-python.vscode-python-envs",
+    "ms-python.mypy-type-checker",
+    "charliermarsh.ruff",
+    "ms-python.isort",
+
+    // Data & Configuration (CSV, TOML, YAML).
+    "mechatroner.rainbow-csv",
+    "ms-toolsai.datawrangler",
+    "tamasfe.even-better-toml",
+    "redhat.vscode-yaml",
+
+    // Build, Scripts & CI/CD.
+    "ms-vscode.makefile-tools",
+    "github.vscode-github-actions",
+    "github.vscode-pull-request-github",
+    "timonwong.shellcheck",
+
+    // Documentation & Git Workflows.
+    "shd101wyy.markdown-preview-enhanced",
+    "hediet.vscode-drawio",
+    "tomoki1207.pdf",
+    "mhutchie.git-graph",
+    "jasonnutter.vscode-codeowners",
+
+    // Visual.
+    "usernamehw.errorlens",
+    "aaron-bond.better-comments",
+    "fanaticpythoner.better-todo-tree",
+    "alefragnani.bookmarks",
+    "pkief.material-icon-theme",
+    "shardulm94.trailing-spaces"
+  ]
+}
