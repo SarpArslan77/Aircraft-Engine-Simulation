@@ -38,9 +38,6 @@ dfx_runtime.txt
 # Generated testbench configurations.
 tb/config.json
 
-# Reference simulation output datasets.
-software_results.csv
-
 #* ======= Helper Files & Directories =======
 test.py
 todo.py
