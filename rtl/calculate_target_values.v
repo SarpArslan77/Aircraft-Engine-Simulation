@@ -37,6 +37,21 @@ module calculate_target_values #(
     localparam TOTAL_BIT_WIDTH = INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
     localparam MULTIPLICATION_BIT_WIDTH = TOTAL_BIT_WIDTH * 2;
 
+    // ------- Registers. -------
+    // RS.
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q2;
+
+    // CP.
+    (* use_dsp = "yes" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_q;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_q;
+
+    // EGT.
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q2;
+    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q1;
+    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q2;
+
     // ------- Wires. -------
     // Rotational Speed (RS).
     wire signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_shifted = (speed_mult_q2 >>> FRACTIONAL_BIT_WIDTH);
@@ -69,21 +84,6 @@ module calculate_target_values #(
         heat_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
         cooling_mult_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH]
     };
-
-    // ------- Registers. -------
-    // RS.
-    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_mult_q2;
-
-    // CP.
-    (* use_dsp = "yes" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] speed_squared_q;
-    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] pressure_mult_q;
-
-    // EGT.
-    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] heat_mult_q2;
-    (* use_dsp = "no" *)  reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q1;
-    reg signed [MULTIPLICATION_BIT_WIDTH-1:0] cooling_mult_q2;
 
     // ------- Sequential Logic. -------
     always @(posedge clk) begin

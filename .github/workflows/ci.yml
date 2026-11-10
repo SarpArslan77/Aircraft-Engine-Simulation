@@ -1,4 +1,3 @@
-
 #* .github/workflows/ci.yml
 
 #? .yml: YAML Ain't Markup Language, standard text format used to store data
@@ -16,100 +15,108 @@ name: RTL & Python Simulation CI
 #? on: Defines the triggers (events) that cause the script to run.
 # Triggers whenever it is pushed or created a pull request to 'main' branch.
 on:
-    push:
-        branches: ["main"]
-    pull_request:
-        branches: ["main"]
-    workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 #? jobs: Workflow containing multiple jobs.
 jobs:
-    run-simulation:
-        name: Run Engine Simulation & Cocotb Tests
-        #? runs-on: Instructs GitHub to allocate a VM running specified OS.
-        runs-on: ubuntu-latest
+  run-simulation:
+    name: Run Engine Simulation & Cocotb Tests (${{ matrix.os }})
+    #? runs-on: Instructs GitHub to allocate a VM running specified OS.
+    runs-on: ${{ matrix.os }}
+    strategy: #TODO AC
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
 
-        #? env: Sets system environment variables for this job.
-        env:
-            #? MPLBACKEND: Agg -> Forces Matplotlib to render plots silently.
-            MPLBACKEND: Agg
+    #? env: Sets system environment variables for this job.
+    env:
+      #? MPLBACKEND: Agg -> Forces Matplotlib to render plots silently.
+      MPLBACKEND: Agg
 
-        #? steps: Executes orders from top to bottom.
-        steps:
-            # Pulls repo code onto the runner.
-            - name: Checkout Repository
-              #? actions/checkout@v5: GitHub utility, performs 'git clone'
-              #     of the repo onto VM.
-              uses: actions/checkout@v5
-            
-            - name: Check for Engine & Simulation Changes
-              uses: dorny/paths-filter@v3
-              id: filter
-              with:
-                filters: |
-                  engine:
-                    - ".github/workflows/ci.yml"
-                    - "rtl/**"
-                    - "scripts/**"
-                    - "sim_model/**"
-                    - "tb/**"
-                    - "config.toml"
-                    - "main.py"
-                    - "Makefile"
-                    - "requirements.txt"
+    #? steps: Executes orders from top to bottom.
+    steps:
+      # Pulls repo code onto the runner.
+      - name: Checkout Repository
+        #? actions/checkout@v5: GitHub utility, performs 'git clone'
+        #     of the repo onto VM.
+        uses: actions/checkout@v5
 
-            # Installs Icarus Verilog simulator via apt. 
-            - name: Install Icarus Verilog (iverilog)
-              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
-              #? run: | -> Runs Bash shell commands in terminal.
-              run: |
-                #? apt: Ubuntu's package manager.
-                sudo apt-get update
-                sudo apt-get install -y iverilog
+      - name: Check for Engine & Simulation Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            engine:
+              - ".github/workflows/ci.yml"
+              - "rtl/**"
+              - "scripts/**"
+              - "sim_model/**"
+              - "tb/**"
+              - "config.toml"
+              - "main.py"
+              - "Makefile"
+              - "requirements.txt"
 
-            # Verifies simulator is installed.
-            - name: Check iverilog Version
-              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
-              run: iverilog -V
+      # Installs Icarus Verilog simulator via apt. 
+      - name: Install Icarus Verilog (iverilog)
+        if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+        #? run: | -> Runs Bash shell commands in terminal.
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            #? apt: Ubuntu's package manager.
+            sudo apt-get update
+            sudo apt-get install -y iverilog
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install icarus-verilog
+          fi
 
-            # Sets up the Python environment.
-            - name: Set up Python
-              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
-              #? actions|setup-python@v6: GitHub tool, provisions Python.
-              uses: actions/setup-python@v6
-              with:
-                python-version: "3.12"
-                #? cache: "pip" -> Memorizes downloaded Python wheels.
-                cache: "pip"
-            
-            # Installs the project dependencies.
-            - name: Install Python Dependencies
-              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
-              run: |
-                #? -f file.py: Shell-checks, if 'file.py' exists.
-                python -m pip install --upgrade pip
-                if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            
-            # Executes the verication pipeline.
-            - name: Run Main Simulation & Cocotb Verification
-              if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
-              run: |
-                python main.py
-            
-            # Archives simulation artifacts (results csv & sim logs).
-            - name: Upload Test Artifacts
-              #? if: always(): Doesnt skip this step, even if the tests fail.
-              if: always() && (steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch')
-              #? actions/upload-artifact@v6: Zips up files generated during the run
-              #     and attaches them to the GitHub web page.
-              uses: actions/upload-artifact@v6
-              with:
-                name: simulation-results
-                #? path: Specifies which folders to zip.
-                path: |
-                    software_results.csv
-                    sim_build/
-                if-no-files-found: ignore
+      # Verifies simulator is installed.
+      - name: Check iverilog Version
+        if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+        run: iverilog -V
+
+      # Sets up the Python environment.
+      - name: Set up Python
+        if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+        #? actions|setup-python@v6: GitHub tool, provisions Python.
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          #? cache: "pip" -> Memorizes downloaded Python wheels.
+          cache: "pip"
+
+      # Installs the project dependencies.
+      - name: Install Python Dependencies
+        if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          #? -f file.py: Shell-checks, if 'file.py' exists.
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # Executes the verication pipeline.
+      - name: Run Main Simulation & Cocotb Verification
+        if: steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          python main.py
+
+      # Archives simulation artifacts (results csv & sim logs).
+      - name: Upload Test Artifacts
+        #? if: always(): Doesnt skip this step, even if the tests fail.
+        if: always() && (steps.filter.outputs.engine == 'true' || github.event_name == 'workflow_dispatch')
+        #? actions/upload-artifact@v6: Zips up files generated during the run
+        #     and attaches them to the GitHub web page.
+        uses: actions/upload-artifact@v6
+        with:
+          name: simulation-results-${{ matrix.os }}
+          #? path: Specifies which folders to zip.
+          path: |
+            software_results.csv
+            sim_build/
+          if-no-files-found: ignore

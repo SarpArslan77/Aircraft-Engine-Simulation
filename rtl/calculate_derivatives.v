@@ -38,6 +38,13 @@ module calculate_derivatives #(
     localparam TOTAL_BIT_WIDTH = INT_BIT_WIDTH + FRACTIONAL_BIT_WIDTH;
     localparam MULTIPLICATION_BIT_WIDTH = TOTAL_BIT_WIDTH * 2;
 
+    // ------- Registers. -------
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_q;
+
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] compressor_pressure_mult_q;
+
+    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] exhaust_gas_temperature_mult_q;
+
     // ------- Wires. -------
     // Rotational Speed (RS).
     wire signed [TOTAL_BIT_WIDTH-1:0] rotational_speed_delta = target_rotational_speed - current_rotational_speed;
@@ -60,13 +67,6 @@ module calculate_derivatives #(
         d_compressor_pressure_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH],
         d_exhaust_gas_temperature_shifted[MULTIPLICATION_BIT_WIDTH-1:TOTAL_BIT_WIDTH]
     };
-
-    // ------- Registers. -------
-    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] rotational_speed_mult_q;
-
-    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] compressor_pressure_mult_q;
-
-    (* use_dsp = "no" *) reg signed [MULTIPLICATION_BIT_WIDTH-1:0] exhaust_gas_temperature_mult_q;
 
     // ------- Sequential Logic. -------
     always @(posedge clk) begin
