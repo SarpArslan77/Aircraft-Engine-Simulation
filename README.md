@@ -12,6 +12,78 @@ The engine dynamics track key physical states—**Rotational Speed ($N$)**, **Co
 
 ---
 
+## Hardware Datapath Architecture
+
+The engine core is partitioned into three discrete pipelined processing stages clocked by `s_axi_aclk` (90.91 MHz) and gated by a 1 ms domain enable pulse (`clk_en_1ms`):
+
+![Top Module Datapath Overview](docs/assets/top_module.svg)
+
+<div align="center">
+
+**Submodule Deep-Dives:**  
+[🔍 1. Calculate Target Values](#1-submodule-calculate_target_valuesv) • [🔍 2. Calculate Derivatives](#2-submodule-calculate_derivativesv) • [🔍 3. Calculate Next Steps](#3-submodule-calculate_next_stepsv)
+
+</div>
+
+---
+
+### 1. Submodule: `calculate_target_values.v`
+> **Function:** Evaluates steady-state target conditions ($N_{\text{target}}, P_{\text{target}}, T_{\text{target}}$) from incoming fuel flow command ($W_f$) and current spool speed ($N$).
+
+<details open>
+<summary><b>Click to expand/collapse internal schematic & details</b></summary>
+<br>
+
+![Calculate Target Values Architecture](docs/assets/calculate_target_values.svg)
+
+* **Multi-Cycle Latency Balancing:** Implements a 2-cycle register delay to match the non-linear squarer stage ($N^2$).
+* **Dedicated DSP Allocation:** Computes $N(t)^2$ using dedicated DSP48E1 slices (`speed_squared_q`), retiming products through pipeline registers (`speed_mult_q2`, `heat_mult_q2`, `cooling_mult_q2`).
+* **Fixed-Point Realignment:** Intermediate 64-bit multiplication outputs are arithmetically right-shifted by 16 bits (`>>> FRACTIONAL_BIT_WIDTH`) to preserve dynamic range.
+
+</details>
+
+---
+
+### 2. Submodule: `calculate_derivatives.v`
+> **Function:** Solves the first-order discrete rate-of-change deltas ($dN, dP, dT$) using pre-calculated division-free integration constants.
+
+<details open>
+<summary><b>Click to expand/collapse internal schematic & details</b></summary>
+<br>
+
+![Calculate Derivatives Architecture](docs/assets/calculate_derivatives.svg)
+
+* **Division-Free Euler Mapping:** Replaces floating-point divisions ($1/\tau$) with pre-scaled integer coefficients:
+  $$C_N = 44\text{ LSBs} \quad (\tau_N = 1.5\text{ s}), \quad C_P = 437\text{ LSBs} \quad (\tau_P = 0.15\text{ s}), \quad C_T = 82\text{ LSBs} \quad (\tau_T = 0.8\text{ s})$$
+* **Error Delta Calculation:** Evaluates $(\text{Target} - \text{Current})$ followed by scaling and truncation:
+  $$dX[k] = \left( C_X \cdot (X_{\text{target}}[k] - X[k]) \right) \gg 16$$
+* **Resource Optimization:** Mapped to pure LUT logic using `(* use_dsp = "no" *)`, preserving available DSP48 slices for larger system-level integration.
+
+</details>
+
+---
+
+### 3. Submodule: `calculate_next_steps.v`
+> **Function:** Accumulates discrete increments ($X[k+1] = X[k] + dX[k]$) and applies hardware clamping.
+
+<details open>
+<summary><b>Click to expand/collapse internal schematic & details</b></summary>
+<br>
+
+![Calculate Next Steps Architecture](docs/assets/calculate_next_steps.svg)
+
+* **Two's-Complement Overflow Protection:** Detects positive sign-wrap conditions:
+  $$\text{Overflow} = \sim X_{\text{curr}}[31] \;\&\; \sim dX[31] \;\&\; X_{\text{calc}}[31]$$
+  If detected, saturates the signal to `0x7FFF_FFFF` to prevent negative arithmetic wrap-around.
+* **Physical Boundary Clamps:**
+  * Spool speed lower bound: $\max(0, N)$
+  * Compressor pressure lower bound: $\max(P_{\text{amb}}, P)$
+  * Exhaust gas temperature lower bound: $\max(T_{\text{amb}}, T)$
+
+</details>
+
+---
+
 ## Key Engineering Highlights
 
 * **Physics-Based Dynamics:** Solves continuous-time engine non-linear differential equations using first-order forward Euler integration ($dt = 1\text{ ms}$).
