@@ -1,7 +1,14 @@
 #TODO AC
-# Treat Python simulation/verification files as vendored/documentation
-# so GitHub Linguist recognizes Verilog as the primary language:
-sim_model/* linguist-vendored
+# 1. Vendor auxiliary automation, toolchain locators, and plotting scripts
+# (This trims just enough boilerplate Python so Verilog takes the #1 spot)
 scripts/* linguist-vendored
-tb/* linguist-vendored
-main.py linguist-vendored
+sim_model/graph_visualizer.py linguist-vendored
+
+# 2. Keep core simulation, fixed-point math, and Cocotb testbenches detectable
+# (These remain visible in the repository's language breakdown bar)
+sim_model/aircraft_engine_simulator_*.py linguist-detectable=true
+tb/* linguist-detectable=true
+main.py linguist-detectable=true
+
+# 3. Explicitly detect synthesizable hardware
+rtl/* linguist-detectable=true
