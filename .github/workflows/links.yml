@@ -47,7 +47,7 @@ jobs:
         #? --exclude (f.e. "build_synth/."): Tells to ignore links pointing to this.
         #? --exclude "http://localhost.": Prevents failures if any documents
         #   or comments reference local web servers.
-        #? --exclude "https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/.**":
+        #? --exclude "https://github.com/SarpArslan77/fpga-jet-engine-simulator/actions/.**":
         #   Avoids transient false-negative badge failures, when a new branch is created.
         #? './**/*.md': Target file glob pattern.
         #? fail: true -> If any broken link was found, fails the GitHub Action.
@@ -56,7 +56,7 @@ jobs:
             --verbose
             --exclude "build_synth/."
             --exclude "http://localhost."
-            --exclude "https://github.com/SarpArslan77/Aircraft-Engine-Simulation/actions/.**"
+            --exclude "https://github.com/SarpArslan77/fpga-jet-engine-simulator/actions/.**"
             './**/*.md'
           fail: true
     
