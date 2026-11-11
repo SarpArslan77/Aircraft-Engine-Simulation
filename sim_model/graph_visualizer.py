@@ -287,11 +287,11 @@ class GraphVisualizer:
                 linestyle = self._cfg.engine_failure_line_linestyle,
                 linewidth = self._cfg.engine_failure_line_linewidth,
             )
-        
+
             # Gets the upper limit of the y-axis.
             _, ax_y_top_limit = ax.get_ylim()
             engine_failure_text_y_pos = ax_y_top_limit * 0.9
-        
+
             ax.text(
                 x = failure_time + 1,
                 y = engine_failure_text_y_pos,

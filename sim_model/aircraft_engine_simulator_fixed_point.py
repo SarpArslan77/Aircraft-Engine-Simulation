@@ -397,7 +397,7 @@ class AircraftEngineSimulatorFixedPoint:
         raw_exponent: int | str = simulation_step_decimal.as_tuple().exponent #TODO AC
         #?  .exponent: Extracts just the exponent integer of a DecimalTuple.
         simulation_step_decimal_exponent: int = raw_exponent if isinstance(raw_exponent, int) else 0 #TODO AC
-        
+
         time_history_rounding_decimals: int = max(0, -simulation_step_decimal_exponent)
 
         # Populates the time history as it is deterministic.
