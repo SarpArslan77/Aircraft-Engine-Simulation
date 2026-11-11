@@ -1,9 +1,1 @@
-#TODO AC
-# Treat automation, plotting, and tools as documentation (excluded from code stats)
-scripts/** linguist-documentation
-sim_model/graph_visualizer.py linguist-documentation
-tb/** linguist-documentation
-
-# Ensure all Verilog files are treated as core code
-rtl/** linguist-detectable=true
-rtl/** linguist-language=Verilogs
+#TODO
