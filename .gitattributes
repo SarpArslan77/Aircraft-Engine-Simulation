@@ -1,0 +1,7 @@
+#TODO AC
+# Treat Python simulation/verification files as vendored/documentation
+# so GitHub Linguist recognizes Verilog as the primary language:
+sim_model/* linguist-vendored
+scripts/* linguist-vendored
+tb/* linguist-vendored
+main.py linguist-vendored
