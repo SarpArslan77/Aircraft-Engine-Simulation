@@ -23,12 +23,12 @@ class RepresentationConfig:
             raise ValueError(
                 f"int_bit_width must be positive, got {self.int_bit_width}"
             )
-        
+
         if self.fractional_bit_width <= 0:
             raise ValueError(
                 f"fractional_bit_width must be positive, got {self.fractional_bit_width}"
             )
-        
+
         total_width = self.int_bit_width + self.fractional_bit_width
         if total_width != 32:
             raise ValueError(
@@ -45,7 +45,7 @@ class SimulationConfig:
             raise ValueError(
                 f"simulation_step (dt) must be strictly positive, got {self.simulation_step}"
             )
-        
+
         if self.total_simulation_time <= self.simulation_step:
             raise ValueError(
                 f"total_simulation_time ({self.total_simulation_time}) must be greater than step size ({self.simulation_step})"
@@ -63,7 +63,7 @@ class AmbientConfig:
             raise ValueError(
                 f"ambient_pressure must be physically positive, got {self.ambient_pressure} kPa"
             )
-        
+
         if self.ambient_temperature <= -273.15:
             raise ValueError(
                 f"ambient_temperature must be above absolute zero (-273.15 °C), got {self.ambient_temperature} °C"
@@ -85,12 +85,12 @@ class InertiaConfig:
             raise ValueError(
                 f"rotor_inertial_time_const (tau_N) must be > 0.0, got {self.rotor_inertial_time_const}"
             )
-        
+
         if self.pressure_volume_time_const <= 0.0:
             raise ValueError(
                 f"pressure_volume_time_const (tau_P) must be > 0.0, got {self.pressure_volume_time_const}"
             )
-        
+
         if self.thermal_time_const <= 0.0:
             raise ValueError(
                 f"thermal_time_const (tau_T) must be > 0.0, got {self.thermal_time_const}"
@@ -115,17 +115,17 @@ class GainConfig:
             raise ValueError(
                 f"speed_gain_coeff must be > 0.0, got {self.speed_gain_coeff}"
             )
-        
+
         if self.compressor_pressure_gain <= 0.0:
             raise ValueError(
                 f"compressor_pressure_gain must be > 0.0, got {self.compressor_pressure_gain}"
             )
-        
+
         if self.combustion_heat_gain <= 0.0:
             raise ValueError(
                 f"combustion_heat_gain must be > 0.0, got {self.combustion_heat_gain}"
             )
-        
+
         if self.mass_overflow_cooling_gain <= 0.0:
             raise ValueError(
                 f"mass_overflow_cooling_gain must be > 0.0, got {self.mass_overflow_cooling_gain}"
@@ -144,7 +144,7 @@ class LimitConfig:
             raise ValueError(
                 f"max_rotational_speed must be > 0.0, got {self.max_rotational_speed}"
             )
-        
+
         if self.max_compressor_temperature <= 0.0:
             raise ValueError(
                 f"max_compressor_temperature must be > 0.0, got {self.max_compressor_temperature}"
@@ -161,12 +161,12 @@ class SynthesisConfig:
             raise ValueError(
                 f"synth_target_period must be > 0.0 ns, got {self.synth_target_period}"
             )
-        
+
         if self.sweep_low_period <= 0.0:
             raise ValueError(
                 f"sweep_low_period must be > 0.0 ns, got {self.sweep_low_period}"
             )
-        
+
         if self.sweep_high_period <= self.sweep_low_period:
             raise ValueError(
                 f"sweep_high_period ({self.sweep_high_period}) must be strictly greater than sweep_low_period ({self.sweep_low_period})"
@@ -218,12 +218,12 @@ class TestbenchConfig:
             raise ValueError(
                 f"smoke_test_duration must be positive, got {self.smoke_test_duration}"
             )
-        
+
         if self.compressor_stall_test_duration <= 0.0:
             raise ValueError(
                 f"compressor_stall_test_duration must be positive, got {self.compressor_stall_test_duration}"
             )
-        
+
         if self.max_thermal_threshold_cross_duration <= 0.0:
             raise ValueError(
                 f"max_thermal_threshold_cross_duration must be positive, got {self.max_thermal_threshold_cross_duration}"
@@ -264,12 +264,12 @@ class ConfigLoader:
     def load_config (
             self,
             config_file_path: Path
-    ) -> SystemConfig: 
+    ) -> SystemConfig:
         # ------- Config File Read and Validation. -------
         #? 'rb': Accepts the text streams as a binary file.
         # Reads the file.
         try:
-            with open( 
+            with open(
                 config_file_path,
                 mode = "rb"
             ) as file:
