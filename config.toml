@@ -6,31 +6,31 @@ fractional_bit_width = 16
 simulation_step = 1e-3
 total_simulation_time = 20.0 # [s].
 
-[physics.ambient]
+[ambient]
 ambient_pressure = 101.3 # [kPa].
 ambient_temperature = 15.0
 
-[physics.inertia]
+[inertia]
 rotor_inertial_time_const = 1.5 #TODO Explain in LaTex how it is derived from the paper.
 pressure_volume_time_const = 0.15
 thermal_time_const = 0.8
 
-[physics.gain]
+[gain]
 speed_gain_coeff = 1.0
 compressor_pressure_gain = 15e-3
 combustion_heat_gain = 15.0
 mass_overflow_cooling_gain = 6.0
 
-[physics.limit]
+[limit]
 max_rotational_speed = 110.0
 max_compressor_temperature = 1100.0
 
-[hardware.synthesis]
+[synthesis]
 synth_target_period = 11.00 # [ns].
 sweep_low_period = 2.00 # [ns].
 sweep_high_period = 20.00 # [ns].
 
-[hardware.register]
+[register]
 addr_control = 0x00
 addr_status = 0x04
 addr_fuel_flow_cmd = 0x08
