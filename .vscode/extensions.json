@@ -12,7 +12,6 @@
     "ms-python.debugpy",
     "ms-python.vscode-python-envs",
     "ms-python.mypy-type-checker",
-    "charliermarsh.ruff",
     "ms-python.isort",
 
     // Data & Configuration (CSV, TOML, YAML).
@@ -35,7 +34,6 @@
     "jasonnutter.vscode-codeowners",
 
     // Visual.
-    "usernamehw.errorlens",
     "aaron-bond.better-comments",
     "fanaticpythoner.better-todo-tree",
     "alefragnani.bookmarks",
